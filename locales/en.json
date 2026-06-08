@@ -223,6 +223,6 @@
     "th_saved": "Tokens Saved",
     "th_avg_pct": "Avg %",
     "th_time": "Time",
-    "disclaimer": "RTK (Rust Token Killer) strips noise from dev-command output before it reaches the model. Cost-avoided is an estimate: saved tokens priced at a flat input-token rate (set rtk.token_price_usd_per_mtok in config.json). It is not a billed amount."
+    "disclaimer": "RTK (Rust Token Killer) strips noise from dev-command output before it reaches the model. Cost avoided is an estimate shown as a range: saved tokens priced between the Sonnet input rate ($3/M) and the Opus input rate ($5/M). Tune via rtk.token_price_low/high_usd_per_mtok in config.json. It is not a billed amount."
   }
 }

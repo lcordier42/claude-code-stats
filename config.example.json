@@ -16,6 +16,7 @@
   "rtk": {
     "enabled": true,
     "db_path": null,
-    "token_price_usd_per_mtok": 3.0
+    "token_price_low_usd_per_mtok": 3.00,
+    "token_price_high_usd_per_mtok": 5.00
   }
 }

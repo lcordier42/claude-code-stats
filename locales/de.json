@@ -223,6 +223,6 @@
     "th_saved": "Gesparte Tokens",
     "th_avg_pct": "Ø %",
     "th_time": "Zeit",
-    "disclaimer": "RTK (Rust Token Killer) entfernt Rauschen aus der Ausgabe von Dev-Befehlen, bevor sie das Modell erreicht. Vermiedene Kosten sind eine Schätzung: gesparte Tokens zu einem festen Input-Token-Preis (rtk.token_price_usd_per_mtok in config.json). Kein abgerechneter Betrag."
+    "disclaimer": "RTK (Rust Token Killer) entfernt Rauschen aus der Ausgabe von Dev-Befehlen, bevor sie das Modell erreicht. Vermiedene Kosten sind eine Schätzung als Spanne: gesparte Tokens zwischen dem Sonnet-Input-Preis ($3/M) und dem Opus-Input-Preis ($5/M). Anpassbar über rtk.token_price_low/high_usd_per_mtok in config.json. Kein abgerechneter Betrag."
   }
 }

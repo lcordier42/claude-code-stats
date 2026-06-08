@@ -1479,7 +1479,16 @@ def load_rtk_stats():
     if not db_path:
         return None
 
-    price = float(rtk_cfg.get("token_price_usd_per_mtok", 3.00))
+    # Cost-avoided is estimated as a range: saved tokens are mostly input
+    # context, so we bracket between the Sonnet input rate ($3/M) and the Opus
+    # input rate ($5/M). A legacy single `token_price_usd_per_mtok` collapses
+    # the range to a point estimate.
+    _legacy = rtk_cfg.get("token_price_usd_per_mtok")
+    if _legacy is not None:
+        price_low = price_high = float(_legacy)
+    else:
+        price_low = float(rtk_cfg.get("token_price_low_usd_per_mtok", 3.00))
+        price_high = float(rtk_cfg.get("token_price_high_usd_per_mtok", 5.00))
 
     try:
         import sqlite3
@@ -1545,8 +1554,10 @@ def load_rtk_stats():
         "avg_savings_pct": round(total_saved / (total_input + total_output) * 100, 1)
         if (total_input + total_output) else 0,
         "total_time_ms": total_time,
-        "price_per_mtok": price,
-        "usd_saved": round(total_saved / 1_000_000 * price, 2),
+        "price_low": price_low,
+        "price_high": price_high,
+        "usd_saved_low": round(total_saved / 1_000_000 * price_low, 2),
+        "usd_saved_high": round(total_saved / 1_000_000 * price_high, 2),
         "first_date": first_date,
         "last_date": last_date,
         "by_command": by_command,
@@ -4018,7 +4029,7 @@ function renderRTK() {
   const L = D.locale.rtk;
   const cards = [
     {cls:'tokens', label:L.kpi_saved, value:fmtTokens(r.total_saved), sub:r.avg_savings_pct + '% ' + L.kpi_saved_sub},
-    {cls:'cost', label:L.kpi_usd, value:fmtUSD(r.usd_saved), sub:'@ $' + r.price_per_mtok + L.kpi_usd_sub},
+    {cls:'cost', label:L.kpi_usd, value:(r.usd_saved_low === r.usd_saved_high ? fmtUSD(r.usd_saved_low) : fmtUSD(r.usd_saved_low) + ' – ' + fmtUSD(r.usd_saved_high)), sub:'@ $' + r.price_low + (r.price_low === r.price_high ? '' : '–' + r.price_high) + L.kpi_usd_sub},
     {cls:'messages', label:L.kpi_commands, value:fmt(r.total_commands), sub:r.first_date + ' – ' + r.last_date},
     {cls:'sessions', label:L.kpi_time, value:fmtDuration(r.total_time_ms), sub:L.kpi_time_sub},
   ];
@@ -6444,7 +6455,7 @@ def main():
 
     rtk = load_rtk_stats()
     if rtk:
-        print(f"  RTK: {rtk['total_commands']} commands, {rtk['total_saved']/1e6:.1f}M tokens saved (~${rtk['usd_saved']})")
+        print(f"  RTK: {rtk['total_commands']} commands, {rtk['total_saved']/1e6:.1f}M tokens saved (~${rtk['usd_saved_low']}–${rtk['usd_saved_high']})")
     else:
         print("  RTK: no data (disabled or history.db not found)")
 

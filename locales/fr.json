@@ -223,6 +223,6 @@
     "th_saved": "Tokens économisés",
     "th_avg_pct": "% moy.",
     "th_time": "Temps",
-    "disclaimer": "RTK (Rust Token Killer) retire le bruit de la sortie des commandes de dev avant qu'elle n'atteigne le modèle. Le coût évité est une estimation : tokens économisés valorisés à un tarif fixe par token d'entrée (rtk.token_price_usd_per_mtok dans config.json). Ce n'est pas un montant facturé."
+    "disclaimer": "RTK (Rust Token Killer) retire le bruit de la sortie des commandes de dev avant qu'elle n'atteigne le modèle. Le coût évité est une estimation affichée sous forme de fourchette : tokens économisés valorisés entre le tarif d'entrée Sonnet ($3/M) et le tarif d'entrée Opus ($5/M). Ajustable via rtk.token_price_low/high_usd_per_mtok dans config.json. Ce n'est pas un montant facturé."
   }
 }

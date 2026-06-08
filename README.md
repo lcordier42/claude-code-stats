@@ -74,7 +74,8 @@ See [`config.example.json`](config.example.json) for all options:
 | `additional_sources` | `array` | `[]` | Extra `~/.claude` directories to merge (multi-user) |
 | `rtk.enabled` | `bool` | `true` | Show the RTK savings tab (if RTK is installed) |
 | `rtk.db_path` | `string` | `null` | Override path to RTK's `history.db` (auto-detected if null) |
-| `rtk.token_price_usd_per_mtok` | `number` | `3.00` | Flat input-token rate used to estimate cost avoided |
+| `rtk.token_price_low_usd_per_mtok` | `number` | `3.00` | Low end of the input-token rate range for estimating cost avoided |
+| `rtk.token_price_high_usd_per_mtok` | `number` | `5.00` | High end of the input-token rate range for estimating cost avoided |
 
 ### Plan History
 
@@ -120,7 +121,7 @@ The running user needs read access to the referenced directories. Sessions are d
 
 If you use [RTK (Rust Token Killer)](https://github.com/AeternaLabsHQ/rtk), the dashboard adds an **RTK Savings** tab. It reads RTK's `history.db` (read-only) and shows tokens saved, a per-command breakdown, a daily timeline, and an estimated cost avoided.
 
-The cost figure is an **estimate**: saved tokens are priced at a flat input-token rate (`rtk.token_price_usd_per_mtok`, default `3.00`), not a billed amount. The tab is hidden automatically if RTK is not installed.
+The cost figure is an **estimate** shown as a range: saved tokens are priced between a low and high input-token rate (`rtk.token_price_low_usd_per_mtok` / `..._high_...`, defaults `3.00`–`5.00`), not a billed amount. The tab is hidden automatically if RTK is not installed.
 
 ## Output
 
