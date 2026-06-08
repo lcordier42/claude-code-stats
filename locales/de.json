@@ -53,7 +53,9 @@
     "heatmap": "Aktivität",
     "prompts_full": "Prompts pro Tag (Gesamtverlauf)",
     "prompts_label": "Prompts",
-    "prompts_note": "Aus dem langfristigen Prompt-Log (history.jsonl) — enthält Sitzungen, deren Transkripte durch die Aufbewahrung gelöscht wurden. Nur Anzahl der Prompts, keine Token-/Kostendaten."
+    "prompts_note": "Aus dem langfristigen Prompt-Log (history.jsonl) — enthält Sitzungen, deren Transkripte durch die Aufbewahrung gelöscht wurden. Nur Anzahl der Prompts, keine Token-/Kostendaten.",
+    "slash_commands": "Top Slash-Befehle",
+    "slash_note": "Von dir getippte Slash-Befehle, aus dem langfristigen Prompt-Log (history.jsonl). Gesamtverlauf — nicht vom Zeitfilter betroffen."
   },
   "weekdays": [
     "Mo",

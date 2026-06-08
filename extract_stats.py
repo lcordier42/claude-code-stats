@@ -1541,6 +1541,7 @@ def load_prompt_history():
 
     from datetime import datetime, timezone
     daily = defaultdict(int)
+    slash = defaultdict(int)
     total = 0
     for line in hist_path.read_text(encoding="utf-8", errors="ignore").splitlines():
         line = line.strip()
@@ -1557,17 +1558,27 @@ def load_prompt_history():
         day = datetime.fromtimestamp(ts / 1000, tz=timezone.utc).strftime("%Y-%m-%d")
         daily[day] += 1
         total += 1
+        # Slash commands typed by the user (the first token of a /command prompt)
+        disp = (obj.get("display") or "").strip()
+        if disp.startswith("/"):
+            slash[disp.split()[0]] += 1
 
     if not total:
         return None
 
     daily_list = [{"date": d, "count": c} for d, c in sorted(daily.items())]
+    slash_list = sorted(
+        ({"cmd": c, "count": n} for c, n in slash.items()),
+        key=lambda x: -x["count"],
+    )
     return {
         "available": True,
         "daily": daily_list,
         "total": total,
         "first": daily_list[0]["date"],
         "last": daily_list[-1]["date"],
+        "slash_commands": slash_list,
+        "slash_total": sum(slash.values()),
     }
 
 
@@ -2285,6 +2296,13 @@ body { background:var(--bg); color:var(--text); font-family:'Segoe UI',system-ui
         <h3>__L_activity_prompts_full__</h3>
         <canvas id="chartPromptHistory"></canvas>
         <p style="color:var(--text2);font-size:12px;margin-top:8px">__L_activity_prompts_note__</p>
+      </div>
+    </div>
+    <div class="chart-grid full" id="slashCommandsBox">
+      <div class="chart-box tall">
+        <h3>__L_activity_slash_commands__</h3>
+        <canvas id="chartSlashCommands"></canvas>
+        <p style="color:var(--text2);font-size:12px;margin-top:8px">__L_activity_slash_note__</p>
       </div>
     </div>
     <div class="chart-grid full">
@@ -3035,6 +3053,25 @@ function renderActivity() {
     });
   } else if (phBox) {
     phBox.style.display = 'none';
+  }
+
+  // Slash commands typed (from history.jsonl, full history — not time-filtered)
+  const slash = (ph && ph.slash_commands) || [];
+  const slashBox = document.getElementById('slashCommandsBox');
+  if (slash.length) {
+    if (slashBox) slashBox.style.display = '';
+    const top = slash.slice(0, 20);
+    charts.slashCommands = new Chart(document.getElementById('chartSlashCommands'), {
+      type: 'bar',
+      data: { labels: top.map(s => s.cmd),
+        datasets: [{ label: D.locale.activity.prompts_label, data: top.map(s => s.count),
+          backgroundColor: top.map((_, i) => 'hsl(' + (260 + i * 8) + ',55%,60%)'), borderRadius: 4 }] },
+      options: { responsive: true, maintainAspectRatio: false, indexAxis: 'y',
+        plugins: { legend: { display: false } },
+        scales: { x: scaleDefaults.x, y: { ...scaleDefaults.y, ticks: { font: { size: 11 } } } } }
+    });
+  } else if (slashBox) {
+    slashBox.style.display = 'none';
   }
 
   charts.dailyMsgs = new Chart(document.getElementById('chartDailyMsgs'), {

@@ -53,7 +53,9 @@
     "heatmap": "Activity",
     "prompts_full": "Prompts per Day (Full History)",
     "prompts_label": "Prompts",
-    "prompts_note": "From the long-term prompt log (history.jsonl) — includes sessions whose transcripts were purged by retention. Count of prompts only, no token/cost data."
+    "prompts_note": "From the long-term prompt log (history.jsonl) — includes sessions whose transcripts were purged by retention. Count of prompts only, no token/cost data.",
+    "slash_commands": "Top Slash Commands",
+    "slash_note": "Slash commands you typed, from the long-term prompt log (history.jsonl). Full history — not affected by the time filter."
   },
   "weekdays": [
     "Mon",
