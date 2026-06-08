@@ -2969,7 +2969,14 @@ function renderCosts() {
   if (cacheKpi && ct) {
     const cacheRead = F.sessions.reduce((s,se) => s + (se.cache_read_tokens || 0), 0);
     const cacheWrite = F.sessions.reduce((s,se) => s + (se.cache_write_tokens || 0), 0);
+    // Share of input context served from cache vs. fresh (uncached) input
+    const freshInput = F.kpi.total_input_tokens || 0;
+    const hitDenom = cacheRead + freshInput;
+    const hitRatio = hitDenom > 0 ? (cacheRead / hitDenom * 100).toFixed(1) : 0;
     cacheKpi.innerHTML = [
+      '<div class="kpi-card"><div class="label">Cache Hit Ratio</div>',
+      '<div class="value" style="color:var(--cyan)">' + hitRatio + '%</div>',
+      '<div class="sub">cache read vs. fresh input</div></div>',
       '<div class="kpi-card"><div class="label">Cache Read Tokens</div>',
       '<div class="value" style="color:var(--cyan)">' + fmtTokens(cacheRead) + '</div></div>',
       '<div class="kpi-card"><div class="label">Cache Write Tokens</div>',
