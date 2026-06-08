@@ -57,26 +57,6 @@ HISTORY_JSONL = CLAUDE_DIR / "history.jsonl"
 
 SOURCE_LABEL = CONFIG.get("source_label", "current")
 
-# ── Migration Backup (optional, configured in config.json) ───────────────
-_mig = CONFIG.get("migration", {})
-MIGRATION_ENABLED = _mig.get("enabled", False)
-MIGRATION_LABEL = _mig.get("label", "migration")
-if MIGRATION_ENABLED and _mig.get("dir"):
-    MIGRATION_DIR = Path(os.path.expanduser(_mig["dir"]))
-    MIGRATION_CLAUDE_DIR = MIGRATION_DIR / _mig.get("claude_dir_name", ".claude-windows")
-    MIGRATION_PROJECTS_DIR = MIGRATION_CLAUDE_DIR / "projects"
-    MIGRATION_DOT_CLAUDE_JSON = MIGRATION_DIR / _mig.get("dot_claude_json_name", ".claude-windows.json")
-    MIGRATION_STATS_CACHE = MIGRATION_CLAUDE_DIR / "stats-cache.json"
-    MIGRATION_HISTORY_JSONL = MIGRATION_CLAUDE_DIR / "history.jsonl"
-else:
-    MIGRATION_ENABLED = False
-    MIGRATION_DIR = None
-    MIGRATION_CLAUDE_DIR = None
-    MIGRATION_PROJECTS_DIR = None
-    MIGRATION_DOT_CLAUDE_JSON = None
-    MIGRATION_STATS_CACHE = None
-    MIGRATION_HISTORY_JSONL = None
-
 # ── Additional Sources (optional, configured in config.json) ──────────────
 ADDITIONAL_SOURCES = []
 for _src in CONFIG.get("additional_sources", []):
@@ -320,8 +300,6 @@ def load_stats_cache():
     """Load stats-cache.json from all sources."""
     merged = {}
     sources = []
-    if MIGRATION_ENABLED:
-        sources.append(MIGRATION_STATS_CACHE)
     for _as in ADDITIONAL_SOURCES:
         sources.append(_as["stats_cache"])
     sources.append(STATS_CACHE)
@@ -349,8 +327,6 @@ def load_dot_claude():
     """Load .claude.json from all sources, merge projects."""
     merged = {}
     sources = []
-    if MIGRATION_ENABLED:
-        sources.append(MIGRATION_DOT_CLAUDE_JSON)
     for _as in ADDITIONAL_SOURCES:
         if _as["dot_claude_json"]:
             sources.append(_as["dot_claude_json"])
@@ -391,8 +367,6 @@ def load_history():
     prompts = []
     seen_ids = set()
     sources = []
-    if MIGRATION_ENABLED:
-        sources.append(MIGRATION_HISTORY_JSONL)
     for _as in ADDITIONAL_SOURCES:
         sources.append(_as["history_jsonl"])
     sources.append(HISTORY_JSONL)
@@ -430,8 +404,6 @@ def load_plans():
     plans = []
     seen_filenames = set()
     sources = []
-    if MIGRATION_ENABLED:
-        sources.append(MIGRATION_CLAUDE_DIR)
     for _as in ADDITIONAL_SOURCES:
         sources.append(_as["claude_dir"])
     sources.append(CLAUDE_DIR)
@@ -473,8 +445,6 @@ def load_plugins():
     seen_plugins = set()
 
     sources = []
-    if MIGRATION_ENABLED:
-        sources.append(MIGRATION_CLAUDE_DIR)
     for _as in ADDITIONAL_SOURCES:
         sources.append(_as["claude_dir"])
     sources.append(CLAUDE_DIR)
@@ -539,8 +509,6 @@ def load_todos():
     files = 0
     seen_files = set()
     sources = []
-    if MIGRATION_ENABLED:
-        sources.append(MIGRATION_CLAUDE_DIR)
     for _as in ADDITIONAL_SOURCES:
         sources.append(_as["claude_dir"])
     sources.append(CLAUDE_DIR)
@@ -576,8 +544,6 @@ def load_file_history_stats():
     sessions = 0
     seen_sessions = set()
     sources = []
-    if MIGRATION_ENABLED:
-        sources.append(MIGRATION_CLAUDE_DIR)
     for _as in ADDITIONAL_SOURCES:
         sources.append(_as["claude_dir"])
     sources.append(CLAUDE_DIR)
@@ -613,7 +579,7 @@ def load_file_history_stats():
 
 
 def calc_storage():
-    """Calculate storage breakdown for ~/.claude/ + migration backup."""
+    """Calculate storage breakdown for ~/.claude/."""
     breakdown = {}
     total = 0
 
@@ -636,24 +602,6 @@ def calc_storage():
                 total += dir_size
         except OSError:
             pass
-
-    # Migration backup as single entry
-    if MIGRATION_ENABLED and MIGRATION_CLAUDE_DIR and MIGRATION_CLAUDE_DIR.exists():
-        migration_size = 0
-        for f in MIGRATION_CLAUDE_DIR.rglob("*"):
-            if f.is_file():
-                try:
-                    migration_size += f.stat().st_size
-                except OSError:
-                    pass
-        if MIGRATION_DOT_CLAUDE_JSON and MIGRATION_DOT_CLAUDE_JSON.exists():
-            try:
-                migration_size += MIGRATION_DOT_CLAUDE_JSON.stat().st_size
-            except OSError:
-                pass
-        if migration_size > 0:
-            breakdown["_migration-backup/"] = migration_size
-            total += migration_size
 
     # Additional sources as single entries
     for _as in ADDITIONAL_SOURCES:
@@ -691,8 +639,6 @@ def load_telemetry():
     env_info = {}
 
     sources = []
-    if MIGRATION_ENABLED:
-        sources.append(MIGRATION_CLAUDE_DIR)
     for _as in ADDITIONAL_SOURCES:
         sources.append(_as["claude_dir"])
     sources.append(CLAUDE_DIR)
@@ -768,10 +714,6 @@ def load_project_memories(skip_memories=False):
 
     memories = {}
     sources = []
-    if MIGRATION_ENABLED and MIGRATION_CLAUDE_DIR:
-        proj_dir = MIGRATION_CLAUDE_DIR / "projects"
-        if proj_dir.exists():
-            sources.append(proj_dir)
     for _as in ADDITIONAL_SOURCES:
         if _as["projects_dir"].exists():
             sources.append(_as["projects_dir"])
@@ -802,8 +744,6 @@ def load_tasks():
     seen_sessions = set()
 
     sources = []
-    if MIGRATION_ENABLED:
-        sources.append(MIGRATION_CLAUDE_DIR)
     for _as in ADDITIONAL_SOURCES:
         sources.append(_as["claude_dir"])
     sources.append(CLAUDE_DIR)
@@ -883,8 +823,6 @@ def parse_session_transcripts():
     total_lines = 0
 
     sources = []  # (label, projects_dir, sudo_user_or_None)
-    if MIGRATION_ENABLED and MIGRATION_PROJECTS_DIR and MIGRATION_PROJECTS_DIR.exists():
-        sources.append((MIGRATION_LABEL, MIGRATION_PROJECTS_DIR, None))
     for _as in ADDITIONAL_SOURCES:
         _su = _as.get("sudo_user")
         if _su:
@@ -936,7 +874,7 @@ def parse_session_transcripts():
                 if is_subagent:
                     parent_id = jsonl_file.parent.parent.name
 
-                # Skip if this session was already fully parsed from migration
+                # Skip if this session was already seen from another source
                 if file_session_id in sessions and source_label == SOURCE_LABEL:
                     # Same session file in both sources — skip duplicate
                     continue
@@ -1187,10 +1125,9 @@ def parse_session_transcripts():
             })
         del sessions[sub_id]
 
-    migration_count = sum(1 for s in sessions.values() if s.get("source") == MIGRATION_LABEL)
     current_count = sum(1 for s in sessions.values() if s.get("source") == SOURCE_LABEL)
     print(f"  Parsed {total_files} files, {total_lines} lines, {len(sessions)} sessions"
-          f" (migration: {migration_count}, current: {current_count})")
+          f" (current: {current_count})")
     return sessions
 
 
@@ -1200,8 +1137,6 @@ def extract_session_messages(session_id, project_dir_name):
 
     # Search for the JSONL file
     sources = []  # (projects_dir, sudo_user_or_None)
-    if MIGRATION_ENABLED and MIGRATION_PROJECTS_DIR and MIGRATION_PROJECTS_DIR.exists():
-        sources.append((MIGRATION_PROJECTS_DIR, None))
     for _as in ADDITIONAL_SOURCES:
         _su = _as.get("sudo_user")
         if _su:
@@ -6458,11 +6393,6 @@ def main():
     print("Claude Code Statistics Extractor")
     print("=" * 50)
     print(f"  Primary:   {CLAUDE_DIR}")
-    if MIGRATION_ENABLED:
-        print(f"  Migration: {MIGRATION_CLAUDE_DIR}"
-              f" ({'found' if MIGRATION_CLAUDE_DIR.exists() else 'not found'})")
-    else:
-        print(f"  Migration: disabled")
 
     t0 = time.time()
 

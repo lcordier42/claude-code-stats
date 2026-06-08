@@ -4,33 +4,18 @@
   "source_label": "",
   "plan_history": [
     {
-      "plan": "Pro",
-      "start": "2025-01-01",
-      "end": "2025-01-31",
-      "cost_eur": 18.00,
-      "cost_usd": 20.00,
-      "billing_day": null
-    },
-    {
-      "plan": "Max",
-      "start": "2025-02-01",
+      "plan": "Team",
+      "start": "2026-02-10",
       "end": null,
-      "cost_eur": 87.61,
-      "cost_usd": 93.00,
-      "billing_day": 1
+      "cost_eur": 17.33,
+      "cost_usd": 20.0,
+      "billing_day": 10
     }
   ],
-  "migration": {
-    "enabled": false,
-    "label": "",
-    "dir": null,
-    "claude_dir_name": ".claude-windows",
-    "dot_claude_json_name": ".claude-windows.json"
-  },
   "additional_sources": [],
   "rtk": {
     "enabled": true,
     "db_path": null,
-    "token_price_usd_per_mtok": 3.00
+    "token_price_usd_per_mtok": 3.0
   }
 }

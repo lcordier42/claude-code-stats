@@ -24,15 +24,15 @@ A comprehensive analytics dashboard for [Claude Code](https://docs.anthropic.com
 
 <table>
   <tr>
-    <td><a href="docs/images/claude-code-stats-01.jpeg"><img src="docs/images/claude-code-stats-01.jpeg" width="280" alt="KPI Dashboard"></a></td>
-    <td><a href="docs/images/claude-code-stats-02.jpeg"><img src="docs/images/claude-code-stats-02.jpeg" width="280" alt="Token & API Value"></a></td>
-    <td><a href="docs/images/claude-code-stats-03.jpeg"><img src="docs/images/claude-code-stats-03.jpeg" width="280" alt="Activity"></a></td>
-    <td><a href="docs/images/claude-code-stats-04.jpeg"><img src="docs/images/claude-code-stats-04.jpeg" width="280" alt="Agents"></a></td>
+    <td><a href="assets/claude-code-stats-01.jpeg"><img src="assets/claude-code-stats-01.jpeg" width="280" alt="KPI Dashboard"></a></td>
+    <td><a href="assets/claude-code-stats-02.jpeg"><img src="assets/claude-code-stats-02.jpeg" width="280" alt="Token & API Value"></a></td>
+    <td><a href="assets/claude-code-stats-03.jpeg"><img src="assets/claude-code-stats-03.jpeg" width="280" alt="Activity"></a></td>
+    <td><a href="assets/claude-code-stats-04.jpeg"><img src="assets/claude-code-stats-04.jpeg" width="280" alt="Agents"></a></td>
   </tr>
   <tr>
-    <td><a href="docs/images/claude-code-stats-05.jpeg"><img src="docs/images/claude-code-stats-05.jpeg" width="280" alt="Projects"></a></td>
-    <td><a href="docs/images/claude-code-stats-06.jpeg"><img src="docs/images/claude-code-stats-06.jpeg" width="280" alt="Sessions"></a></td>
-    <td><a href="docs/images/claude-code-stats-07.jpeg"><img src="docs/images/claude-code-stats-07.jpeg" width="280" alt="Insights"></a></td>
+    <td><a href="assets/claude-code-stats-05.jpeg"><img src="assets/claude-code-stats-05.jpeg" width="280" alt="Projects"></a></td>
+    <td><a href="assets/claude-code-stats-06.jpeg"><img src="assets/claude-code-stats-06.jpeg" width="280" alt="Sessions"></a></td>
+    <td><a href="assets/claude-code-stats-07.jpeg"><img src="assets/claude-code-stats-07.jpeg" width="280" alt="Insights"></a></td>
     <td></td>
   </tr>
 </table>
@@ -69,11 +69,12 @@ See [`config.example.json`](config.example.json) for all options:
 
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
-| `language` | `string` | `"en"` | UI language (`"en"` or `"de"`) |
+| `language` | `string` | `"en"` | UI language (`"en"`, `"de"`, or `"fr"`) |
 | `plan_history` | `array` | `[]` | Your subscription plan history |
-| `migration.enabled` | `bool` | `false` | Enable data from a migration backup |
-| `migration.dir` | `string` | `null` | Path to migration backup directory |
 | `additional_sources` | `array` | `[]` | Extra `~/.claude` directories to merge (multi-user) |
+| `rtk.enabled` | `bool` | `true` | Show the RTK savings tab (if RTK is installed) |
+| `rtk.db_path` | `string` | `null` | Override path to RTK's `history.db` (auto-detected if null) |
+| `rtk.token_price_usd_per_mtok` | `number` | `3.00` | Flat input-token rate used to estimate cost avoided |
 
 ### Plan History
 
@@ -92,23 +93,6 @@ Each entry in `plan_history` represents a subscription period:
 
 - `end: null` means the plan is currently active
 - `billing_day` determines billing cycle boundaries for cost analysis
-
-### Migration Support
-
-If you migrated Claude Code data from another machine, you can include that historical data:
-
-```json
-{
-  "migration": {
-    "enabled": true,
-    "dir": "~/backups/old-machine",
-    "claude_dir_name": ".claude-windows",
-    "dot_claude_json_name": ".claude-windows.json"
-  }
-}
-```
-
-The script deduplicates sessions across both sources automatically.
 
 ### Multi-User / Additional Sources
 
@@ -131,6 +115,12 @@ To include Claude Code data from other users on the same machine (or any additio
 - `dot_claude_json` -- *(optional)* Path to their `.claude.json` file
 
 The running user needs read access to the referenced directories. Sessions are deduplicated and all data (sessions, plans, todos, telemetry, etc.) is merged into the dashboard.
+
+### RTK Savings (optional)
+
+If you use [RTK (Rust Token Killer)](https://github.com/AeternaLabsHQ/rtk), the dashboard adds an **RTK Savings** tab. It reads RTK's `history.db` (read-only) and shows tokens saved, a per-command breakdown, a daily timeline, and an estimated cost avoided.
+
+The cost figure is an **estimate**: saved tokens are priced at a flat input-token rate (`rtk.token_price_usd_per_mtok`, default `3.00`), not a billed amount. The tab is hidden automatically if RTK is not installed.
 
 ## Output
 
@@ -160,7 +150,7 @@ To preserve your data, add `cleanupPeriodDays` to your `~/.claude/settings.json`
 ```
 
 > [!CAUTION]
-> Without this setting, you will silently lose historical session data every time Claude Code starts. There is no recovery mechanism -- once the files are deleted, the cost and token data they contained is gone. If you use `additional_sources` or `migration`, apply this setting on every machine.
+> Without this setting, you will silently lose historical session data every time Claude Code starts. There is no recovery mechanism -- once the files are deleted, the cost and token data they contained is gone. If you use `additional_sources`, apply this setting on every machine.
 
 > [!NOTE]
 > Do not set the value to `0` -- this disables transcript persistence entirely ([#23710](https://github.com/anthropics/claude-code/issues/23710)). The minimum allowed value is `1`.
