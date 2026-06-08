@@ -893,6 +893,7 @@ def parse_session_transcripts():
                                     "message_count": 0,
                                     "user_message_count": 0,
                                     "assistant_message_count": 0,
+                                    "human_prompt_count": 0,
                                     "first_prompt": "",
                                     "file_size": file_size,
                                     "version": obj.get("version", ""),
@@ -961,25 +962,31 @@ def parse_session_transcripts():
                                                 "timestamp": timestamp or "",
                                             })
 
-                                if not sess["first_prompt"]:
-                                    message = obj.get("message", {})
-                                    content = message.get("content", "")
-                                    if isinstance(content, str):
-                                        text = content
-                                    elif isinstance(content, list):
-                                        text = ""
-                                        for block in content:
-                                            if isinstance(block, dict) and block.get("type") == "text":
-                                                text = block.get("text", "")
-                                                break
-                                    else:
-                                        text = ""
+                                # Distinguish a genuine human prompt from a tool
+                                # result (tool results are also role "user").
+                                message = obj.get("message", {})
+                                content = message.get("content", "")
+                                if isinstance(content, str):
+                                    text = content
+                                elif isinstance(content, list):
+                                    text = ""
+                                    for block in content:
+                                        if isinstance(block, dict) and block.get("type") == "text":
+                                            text = block.get("text", "")
+                                            break
+                                else:
+                                    text = ""
 
-                                    if (text
-                                        and not text.startswith("<command")
-                                        and not text.startswith("<local-command")
-                                        and not text.startswith("[Request interrupted")
-                                        and "tool_result" not in str(content)[:100]):
+                                is_human_prompt = bool(
+                                    text
+                                    and not text.startswith("<command")
+                                    and not text.startswith("<local-command")
+                                    and not text.startswith("[Request interrupted")
+                                    and "tool_result" not in str(content)[:100]
+                                )
+                                if is_human_prompt:
+                                    sess["human_prompt_count"] += 1
+                                    if not sess["first_prompt"]:
                                         sess["first_prompt"] = text[:200]
 
                             # Assistant messages with token usage
@@ -1614,6 +1621,7 @@ def build_dashboard_data(sessions, stats_cache, dot_claude, history,
     total_cache_read = 0
     total_cache_write = 0
     total_messages = 0
+    total_human_prompts = 0
 
     for sid, sess in sessions.items():
         timestamps = sorted(sess["timestamps"])
@@ -1677,6 +1685,7 @@ def build_dashboard_data(sessions, stats_cache, dot_claude, history,
         total_cache_read += session_cache_read
         total_cache_write += session_cache_write
         total_messages += sess["message_count"]
+        total_human_prompts += sess["human_prompt_count"]
 
         proj_name = project_display_name(sess["project_path"])
         ps = project_stats[proj_name]
@@ -1713,6 +1722,7 @@ def build_dashboard_data(sessions, stats_cache, dot_claude, history,
             "messages": sess["message_count"],
             "user_messages": sess["user_message_count"],
             "assistant_messages": sess["assistant_message_count"],
+            "human_prompts": sess["human_prompt_count"],
             "input_tokens": session_input,
             "output_tokens": session_output,
             "cache_read_tokens": session_cache_read,
@@ -1938,6 +1948,7 @@ def build_dashboard_data(sessions, stats_cache, dot_claude, history,
             "actual_plan_cost": actual_plan_cost,
             "total_sessions": len(session_list),
             "total_messages": total_messages,
+            "total_human_prompts": total_human_prompts,
             "total_output_tokens": total_output,
             "total_input_tokens": total_input,
             "total_cache_read_tokens": total_cache_read,
@@ -2692,6 +2703,7 @@ function filterData(days, projectFilter) {
   const totalCost = filteredTotalCost;
   const totalSessions = F.sessions.length;
   const totalMessages = F.sessions.reduce((s, x) => s + (x.messages || 0), 0);
+  const totalHumanPrompts = F.sessions.reduce((s, x) => s + (x.human_prompts || 0), 0);
   const totalOutputTokens = F.sessions.reduce((s, x) => s + (x.output_tokens || 0), 0);
   const totalInputTokens = F.sessions.reduce((s, x) => s + (x.input_tokens || 0), 0);
   const totalCacheReadTokens = F.sessions.reduce((s, x) => s + (x.cache_read_tokens || 0), 0);
@@ -2702,6 +2714,7 @@ function filterData(days, projectFilter) {
     actual_plan_cost: calcFilteredPlanCost(dates),
     total_sessions: totalSessions,
     total_messages: totalMessages,
+    total_human_prompts: totalHumanPrompts,
     total_output_tokens: totalOutputTokens,
     total_input_tokens: totalInputTokens,
     total_cache_read_tokens: totalCacheReadTokens,
@@ -2876,7 +2889,7 @@ function renderKPI() {
   const grid = document.getElementById('kpiGrid');
   const cards = [
     {cls:'cost', label:D.locale.kpi.api_equivalent, value:fmtUSD(k.total_cost), sub:D.locale.kpi.api_equivalent_sub + fmtUSD(k.actual_plan_cost), tip: D.locale.locale_code === 'de' ? 'Was diese Nutzung \u00fcber die API kosten w\u00fcrde (ohne Abo). Darunter: tats\u00e4chlich bezahlter Abo-Preis im gew\u00e4hlten Zeitraum.' : 'What this usage would cost via the API (without subscription). Below: actual subscription cost paid in the selected period.'},
-    {cls:'messages', label:D.locale.kpi.messages, value:fmt(k.total_messages), sub:D.locale.kpi.messages_sub_prefix+k.total_sessions+D.locale.kpi.messages_sub_suffix},
+    {cls:'messages', label:D.locale.kpi.messages, value:fmt(k.total_messages), sub:fmt(k.total_human_prompts||0)+' '+D.locale.kpi.prompts_label+' · '+k.total_sessions+D.locale.kpi.messages_sub_suffix, tip:D.locale.kpi.messages_tip},
     {cls:'sessions', label:D.locale.kpi.sessions, value:fmt(k.total_sessions), sub:k.first_session+' - '+k.last_session},
     {cls:'tokens', label:'Tokens', value:'', sub:'', tip: D.locale.locale_code === 'de' ? 'Tokens sind die Texteinheiten die das Sprachmodell verarbeitet (ca. 0.75 Worte pro Token)' : 'Tokens are the text units processed by the language model (approx. 0.75 words per token)'},
   ];

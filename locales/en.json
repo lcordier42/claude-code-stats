@@ -16,7 +16,9 @@
     "messages_sub_suffix": " sessions",
     "sessions": "Sessions",
     "output_tokens": "Output Tokens",
-    "input_prefix": "Input: "
+    "input_prefix": "Input: ",
+    "prompts_label": "prompts sent",
+    "messages_tip": "Total transcript entries — includes tool results and multi-part assistant turns, not just prompts you typed. 'prompts sent' below is your actual human prompts."
   },
   "tabs": {
     "costs": "Token & API Value",

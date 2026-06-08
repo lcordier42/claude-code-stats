@@ -16,7 +16,9 @@
     "messages_sub_suffix": " Sessions",
     "sessions": "Sessions",
     "output_tokens": "Output Tokens",
-    "input_prefix": "Input: "
+    "input_prefix": "Input: ",
+    "prompts_label": "Prompts gesendet",
+    "messages_tip": "Gesamte Transkript-Einträge — inkl. Tool-Ergebnisse und mehrteilige Assistent-Turns, nicht nur deine getippten Prompts. 'Prompts gesendet' unten sind deine tatsächlichen Eingaben."
   },
   "tabs": {
     "costs": "Token & API-Wert",
