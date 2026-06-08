@@ -1862,6 +1862,24 @@ def build_dashboard_data(sessions, stats_cache, dot_claude, history,
         _env["arch"] = platform.machine()
     telemetry["env_info"] = _env
 
+    # Global file-operation aggregation: most-touched files across all sessions,
+    # split by read/edit/write. (Per-project breakdown lives in project pages.)
+    file_op_totals = defaultdict(lambda: {"read": 0, "edit": 0, "write": 0, "total": 0})
+    for s in sessions.values():
+        for fo in s.get("file_ops", []):
+            path = fo.get("path", "")
+            if not path:
+                continue
+            op = fo.get("op", "")
+            agg = file_op_totals[path]
+            if op in ("read", "edit", "write"):
+                agg[op] += 1
+            agg["total"] += 1
+    top_files_global = sorted(
+        ({"path": p, **v} for p, v in file_op_totals.items()),
+        key=lambda x: -x["total"],
+    )[:20]
+
     # Global Agent/Subagent Aggregation
     global_agent_types = defaultdict(int)
     global_agent_descriptions = defaultdict(int)
@@ -1962,6 +1980,7 @@ def build_dashboard_data(sessions, stats_cache, dot_claude, history,
         },
         "rtk": rtk or {"available": False},
         "prompt_history": prompt_history or {"available": False},
+        "top_files_global": top_files_global,
         "_memories": memories or {},
         "_file_ops_by_session": {sid: sess.get("file_ops", []) for sid, sess in sessions.items()},
     }
@@ -2388,6 +2407,9 @@ body { background:var(--bg); color:var(--text); font-family:'Segoe UI',system-ui
       <div class="chart-box tall"><h3>__L_insights_mcp_tools__</h3><canvas id="chartMcpTools"></canvas></div>
       <div class="chart-box"><h3>__L_insights_mcp_servers__</h3><canvas id="chartMcpServers"></canvas></div>
     </div>
+    <div class="chart-grid full" id="topFilesRow">
+      <div class="chart-box tall"><h3>__L_insights_top_files__</h3><canvas id="chartTopFiles"></canvas></div>
+    </div>
     <div class="chart-grid">
       <div class="chart-box">
         <h3>__L_insights_plugins__</h3>
@@ -2748,6 +2770,7 @@ function applyFilter(days, projectFilter) {
   renderSessions();
   renderToolUsageChart();
   renderMcpUsage();
+  renderTopFiles();
   renderAgentsTab();
 }
 
@@ -2803,6 +2826,29 @@ function renderMcpUsage() {
         backgroundColor: servers.map((_, i) => 'hsl(' + (170 + i * 40) + ',60%,55%)'), borderWidth: 1, borderColor: '#1e293b' }] },
     options: { responsive: true, maintainAspectRatio: false,
       plugins: { legend: { position: 'bottom', labels: { color: '#94a3b8', font: { size: 11 } } } } }
+  });
+}
+
+// Most-touched files across all sessions (read/edit/write), stacked.
+// Sourced from D (global, not time-filtered).
+function renderTopFiles() {
+  const files = (D.top_files_global || []).slice(0, 20);
+  const row = document.getElementById('topFilesRow');
+  if (!files.length) { if (row) row.style.display = 'none'; return; }
+  if (row) row.style.display = '';
+  const shorten = p => { const parts = p.split('/'); return parts.length > 2 ? '…/' + parts.slice(-2).join('/') : p; };
+  charts.topFiles = new Chart(document.getElementById('chartTopFiles'), {
+    type: 'bar',
+    data: { labels: files.map(f => shorten(f.path)),
+      datasets: [
+        { label: D.locale.insights.reads, data: files.map(f => f.read), backgroundColor: '#38bdf8', borderRadius: 2 },
+        { label: D.locale.insights.edits, data: files.map(f => f.edit), backgroundColor: '#fbbf24', borderRadius: 2 },
+        { label: D.locale.insights.writes, data: files.map(f => f.write), backgroundColor: '#34d399', borderRadius: 2 },
+      ] },
+    options: { responsive: true, maintainAspectRatio: false, indexAxis: 'y',
+      plugins: { legend: { labels: { color: '#94a3b8' } },
+        tooltip: { callbacks: { afterTitle: items => files[items[0].dataIndex].path } } },
+      scales: { x: { ...scaleDefaults.x, stacked: true }, y: { ...scaleDefaults.y, stacked: true, ticks: { font: { size: 10 } } } } }
   });
 }
 
@@ -3681,6 +3727,7 @@ function renderInsights() {
   // Tool usage chart
   renderToolUsageChart();
   renderMcpUsage();
+  renderTopFiles();
 
   // Storage chart
   const storage = ins.storage || {};

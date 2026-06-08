@@ -179,7 +179,11 @@
     "pushes": "Pushes",
     "pull_requests": "Pull Requests",
     "mcp_tools": "Top MCP Tools",
-    "mcp_servers": "MCP Calls by Server"
+    "mcp_servers": "MCP Calls by Server",
+    "top_files": "Most-Touched Files (Top 20)",
+    "reads": "Reads",
+    "edits": "Edits",
+    "writes": "Writes"
   },
   "agents": {
     "subagent_types": "Subagent Types",

@@ -179,7 +179,11 @@
     "pushes": "Pushes",
     "pull_requests": "Pull Requests",
     "mcp_tools": "Top MCP-Tools",
-    "mcp_servers": "MCP-Aufrufe nach Server"
+    "mcp_servers": "MCP-Aufrufe nach Server",
+    "top_files": "Meistbearbeitete Dateien (Top 20)",
+    "reads": "Lesevorgänge",
+    "edits": "Änderungen",
+    "writes": "Schreibvorgänge"
   },
   "agents": {
     "subagent_types": "Subagent-Typen",
