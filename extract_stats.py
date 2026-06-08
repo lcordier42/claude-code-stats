@@ -3925,10 +3925,16 @@ function renderAgentsTab() {
   }
 
   // KPI cards
+  // Share of real (non-subagent) sessions that dispatched at least one subagent
+  const realSessions = (F.sessions || []).filter(s => !s.is_subagent);
+  const withSub = realSessions.filter(s => (s.agent_dispatches || []).length > 0).length;
+  const subPct = realSessions.length ? Math.round(withSub / realSessions.length * 100) : 0;
+
   const kpiEl = document.getElementById('agentKpis');
   kpiEl.innerHTML = '';
   const agentKpis = [
     {val: as.total_dispatches || 0, color:'var(--purple)', label:D.locale.agents.dispatches},
+    {val: subPct + '%', color:'var(--green)', label:D.locale.agents.sessions_with_subagents},
     {val: (F.insights?.tasks?.total || D.insights?.tasks?.total || 0), color:'var(--cyan)', label:D.locale.agents.total_tasks},
     {val: (es.error_rate || 0) + '%', color:'var(--red)', label:D.locale.agents.error_rate},
   ];

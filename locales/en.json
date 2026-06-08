@@ -192,7 +192,8 @@
     "th_type": "Type",
     "th_description": "Description",
     "th_count": "Count",
-    "th_error": "Error Message"
+    "th_error": "Error Message",
+    "sessions_with_subagents": "Sessions w/ Subagents"
   },
   "project_detail": {
     "overview": "Overview",

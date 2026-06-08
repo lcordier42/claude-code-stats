@@ -192,7 +192,8 @@
     "th_type": "Type",
     "th_description": "Description",
     "th_count": "Nombre",
-    "th_error": "Message d'erreur"
+    "th_error": "Message d'erreur",
+    "sessions_with_subagents": "Sessions avec sous-agents"
   },
   "project_detail": {
     "overview": "Vue d'ensemble",

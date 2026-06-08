@@ -192,7 +192,8 @@
     "th_type": "Typ",
     "th_description": "Beschreibung",
     "th_count": "Anzahl",
-    "th_error": "Fehlermeldung"
+    "th_error": "Fehlermeldung",
+    "sessions_with_subagents": "Sitzungen m. Subagenten"
   },
   "project_detail": {
     "overview": "Übersicht",
