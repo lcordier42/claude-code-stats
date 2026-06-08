@@ -10,6 +10,7 @@ text (prompts) is escaped via textContent before display.
 
 import json
 import os
+import platform
 import re
 import subprocess
 import sys
@@ -930,6 +931,7 @@ def parse_session_transcripts():
                                     "assistant_message_count": 0,
                                     "first_prompt": "",
                                     "file_size": file_size,
+                                    "version": obj.get("version", ""),
                                     "slug": obj.get("slug", ""),
                                     "source": source_label,
                                     "agent_dispatches": [],
@@ -954,6 +956,9 @@ def parse_session_transcripts():
 
                             if obj.get("slug") and not sess["slug"]:
                                 sess["slug"] = obj["slug"]
+
+                            if obj.get("version") and not sess.get("version"):
+                                sess["version"] = obj["version"]
 
                             # Collect timestamps
                             if timestamp:
@@ -1890,6 +1895,23 @@ def build_dashboard_data(sessions, stats_cache, dot_claude, history,
             global_hooks[hook_name] += count
     hook_ranking = sorted(global_hooks.items(), key=lambda x: -x[1])
     hook_summary = [{"name": n, "count": c} for n, c in hook_ranking]
+
+    # Enrich env info with reliable fallbacks. The OTEL telemetry that normally
+    # provides it is often disabled (no events), leaving System Info blank.
+    # claude_version comes from transcripts; platform/arch from this machine.
+    telemetry = dict(telemetry) if telemetry else {}
+    _env = dict(telemetry.get("env_info") or {})
+    if not _env.get("claude_version"):
+        _versions = [s.get("version") for s in sessions.values() if s.get("version")]
+        if _versions:
+            _env["claude_version"] = max(
+                _versions, key=lambda v: [int(x) for x in re.findall(r"\d+", v)] or [0]
+            )
+    if not _env.get("platform"):
+        _env["platform"] = platform.system()
+    if not _env.get("arch"):
+        _env["arch"] = platform.machine()
+    telemetry["env_info"] = _env
 
     # Global Agent/Subagent Aggregation
     global_agent_types = defaultdict(int)
