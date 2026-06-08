@@ -235,9 +235,55 @@ DEFAULT_PRICING = {
     "display": "Unknown"
 }
 
+# Per-family rates, used to price models not explicitly listed in PRICING.
+# Lets a new model (e.g. a future claude-opus-4-9) get correct rates and a
+# readable name automatically instead of being lumped as "Unknown" at
+# mid-range pricing. Anthropic has kept these rates stable per family.
+FAMILY_PRICING = {
+    "opus":   {"input": 5.00, "output": 25.00, "cache_read": 0.50, "cache_write_5m": 6.25, "cache_write_1h": 10.00},
+    "sonnet": {"input": 3.00, "output": 15.00, "cache_read": 0.30, "cache_write_5m": 3.75, "cache_write_1h": 6.00},
+    "haiku":  {"input": 1.00, "output": 5.00,  "cache_read": 0.10, "cache_write_5m": 1.25, "cache_write_1h": 2.00},
+}
+
+# Model ids seen at runtime that aren't explicitly in PRICING (reported once).
+UNKNOWN_MODELS = set()
+
+
+def resolve_pricing(model_id):
+    """Pricing for a model id. Exact PRICING entry wins; otherwise infer the
+    family (opus/sonnet/haiku) from the id for correct rates + a readable name;
+    otherwise fall back to mid-range DEFAULT_PRICING. Unlisted ids are recorded
+    in UNKNOWN_MODELS so the run can warn about them."""
+    if model_id in PRICING:
+        return PRICING[model_id]
+    m = re.search(r"(opus|sonnet|haiku)-(\d+)-(\d+)", model_id or "")
+    if m:
+        fam, major, minor = m.group(1), m.group(2), m.group(3)
+        UNKNOWN_MODELS.add(model_id)
+        priced = dict(FAMILY_PRICING[fam])
+        priced["display"] = f"{fam.capitalize()} {major}.{minor}"
+        return priced
+    # Claude Code uses "<synthetic>" for non-API messages — not a real model.
+    if model_id and model_id != "<synthetic>":
+        UNKNOWN_MODELS.add(model_id)
+    return DEFAULT_PRICING
+
 
 def get_model_display(model_id):
-    return PRICING.get(model_id, DEFAULT_PRICING)["display"]
+    return resolve_pricing(model_id)["display"]
+
+
+def pricing_for_display(display):
+    """Pricing keyed by display name (used by aggregations that work off
+    display-named totals). Matches a known entry, else infers from the family
+    word ("Opus 4.9" -> opus rates), else mid-range."""
+    for mp in PRICING.values():
+        if mp["display"] == display:
+            return mp
+    m = re.match(r"(Opus|Sonnet|Haiku)\b", display or "")
+    if m:
+        return dict(FAMILY_PRICING[m.group(1).lower()], display=display)
+    return DEFAULT_PRICING
 
 
 def calc_cost(model_id, usage):
@@ -246,7 +292,7 @@ def calc_cost(model_id, usage):
     Uses the standard cache write rate (1.25x input price) for all cache
     creation tokens, matching Claude Code's own cost calculation.
     """
-    p = PRICING.get(model_id, DEFAULT_PRICING)
+    p = resolve_pricing(model_id)
 
     input_tokens = usage.get("input_tokens", 0)
     output_tokens = usage.get("output_tokens", 0)
@@ -1745,14 +1791,7 @@ def build_dashboard_data(sessions, stats_cache, dot_claude, history,
 
     cost_by_type = {"input": 0.0, "output": 0.0, "cache_read": 0.0, "cache_write": 0.0}
     for mname_display, mdata in model_totals.items():
-        model_id = None
-        for mid, mp in PRICING.items():
-            if mp["display"] == mname_display:
-                model_id = mid
-                break
-        if not model_id:
-            model_id = list(PRICING.keys())[0]
-        p = PRICING[model_id]
+        p = pricing_for_display(mname_display)
 
         cost_by_type["input"] += mdata["input_tokens"] * p["input"] / 1_000_000
         cost_by_type["output"] += mdata["output_tokens"] * p["output"] / 1_000_000
@@ -1764,14 +1803,7 @@ def build_dashboard_data(sessions, stats_cache, dot_claude, history,
     # Cache efficiency: what would cache_read tokens have cost at full input price?
     cache_savings = 0.0
     for mname_display, mdata in model_totals.items():
-        model_id = None
-        for mid, mp in PRICING.items():
-            if mp["display"] == mname_display:
-                model_id = mid
-                break
-        if not model_id:
-            model_id = list(PRICING.keys())[0]
-        p = PRICING[model_id]
+        p = pricing_for_display(mname_display)
         full_price = mdata["cache_read_tokens"] * p["input"] / 1_000_000
         cache_price = mdata["cache_read_tokens"] * p["cache_read"] / 1_000_000
         cache_savings += full_price - cache_price
@@ -6380,6 +6412,10 @@ def main():
     print(f"  API-Aequivalent: ${data['kpi']['total_cost']:.2f}")
     print(f"  Projects: {data['kpi']['total_projects']}")
     print(f"  Models: {', '.join(data['models'])}")
+    if UNKNOWN_MODELS:
+        print(f"\n  \u26a0  {len(UNKNOWN_MODELS)} model id(s) not in PRICING (priced by inferred family rate):")
+        for mid in sorted(UNKNOWN_MODELS):
+            print(f"      - {mid} -> add to PRICING for exact rates")
     print("\n  \u26a0  Output may contain sensitive data. Do not publish without access control.")
 
 
