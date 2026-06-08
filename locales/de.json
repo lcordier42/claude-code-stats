@@ -175,7 +175,9 @@
     "git_ops": "Git-Operationen",
     "commits": "Commits",
     "pushes": "Pushes",
-    "pull_requests": "Pull Requests"
+    "pull_requests": "Pull Requests",
+    "mcp_tools": "Top MCP-Tools",
+    "mcp_servers": "MCP-Aufrufe nach Server"
   },
   "agents": {
     "subagent_types": "Subagent-Typen",

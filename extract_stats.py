@@ -2366,6 +2366,10 @@ body { background:var(--bg); color:var(--text); font-family:'Segoe UI',system-ui
       <div class="chart-box tall"><h3>__L_insights_tool_usage__</h3><canvas id="chartToolUsage"></canvas></div>
       <div class="chart-box"><h3>__L_insights_storage__</h3><canvas id="chartStorage"></canvas></div>
     </div>
+    <div class="chart-grid" id="mcpUsageRow">
+      <div class="chart-box tall"><h3>__L_insights_mcp_tools__</h3><canvas id="chartMcpTools"></canvas></div>
+      <div class="chart-box"><h3>__L_insights_mcp_servers__</h3><canvas id="chartMcpServers"></canvas></div>
+    </div>
     <div class="chart-grid">
       <div class="chart-box">
         <h3>__L_insights_plugins__</h3>
@@ -2725,6 +2729,7 @@ function applyFilter(days, projectFilter) {
   renderProjects();
   renderSessions();
   renderToolUsageChart();
+  renderMcpUsage();
   renderAgentsTab();
 }
 
@@ -2742,6 +2747,45 @@ function renderToolUsageChart() {
           y: { ...scaleDefaults.y, ticks: { font: { size: 11 } } } } }
     });
   }
+}
+
+// MCP usage, derived from tool_summary (tools named mcp__<server>__<tool>)
+function renderMcpUsage() {
+  const mcp = (F.tool_summary || []).filter(t => (t.name || '').startsWith('mcp__'));
+  const row = document.getElementById('mcpUsageRow');
+  if (!mcp.length) { if (row) row.style.display = 'none'; return; }
+  if (row) row.style.display = '';
+
+  const prettyServer = s => (s || '?').replace(/^claude_ai_/, '');
+
+  // Per-tool breakdown (top 20)
+  const tools = mcp.map(t => {
+    const parts = t.name.split('__');
+    return { label: prettyServer(parts[1]) + ' › ' + (parts.slice(2).join('__') || parts[1]), count: t.count };
+  }).sort((a, b) => b.count - a.count).slice(0, 20);
+  charts.mcpTools = new Chart(document.getElementById('chartMcpTools'), {
+    type: 'bar',
+    data: { labels: tools.map(t => t.label),
+      datasets: [{ label: D.locale.insights.tool_calls, data: tools.map(t => t.count),
+        backgroundColor: tools.map((_, i) => 'hsl(' + (170 + i * 14) + ',60%,55%)'), borderRadius: 4 }] },
+    options: { responsive: true, maintainAspectRatio: false, indexAxis: 'y',
+      plugins: { legend: { display: false } },
+      scales: { x: { ...scaleDefaults.x, title: { display: true, text: D.locale.insights.tool_calls, color: '#64748b' } },
+        y: { ...scaleDefaults.y, ticks: { font: { size: 11 } } } } }
+  });
+
+  // Per-server rollup (doughnut)
+  const byServer = {};
+  mcp.forEach(t => { const s = prettyServer(t.name.split('__')[1]); byServer[s] = (byServer[s] || 0) + t.count; });
+  const servers = Object.entries(byServer).map(([name, count]) => ({ name, count })).sort((a, b) => b.count - a.count);
+  charts.mcpServers = new Chart(document.getElementById('chartMcpServers'), {
+    type: 'doughnut',
+    data: { labels: servers.map(s => s.name),
+      datasets: [{ data: servers.map(s => s.count),
+        backgroundColor: servers.map((_, i) => 'hsl(' + (170 + i * 40) + ',60%,55%)'), borderWidth: 1, borderColor: '#1e293b' }] },
+    options: { responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { position: 'bottom', labels: { color: '#94a3b8', font: { size: 11 } } } } }
+  });
 }
 
 // ── KPI Cards ──────────────────────────────────────────────────────────
@@ -3592,6 +3636,7 @@ function renderInsights() {
 
   // Tool usage chart
   renderToolUsageChart();
+  renderMcpUsage();
 
   // Storage chart
   const storage = ins.storage || {};
