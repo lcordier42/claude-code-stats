@@ -1908,6 +1908,15 @@ def build_dashboard_data(sessions, stats_cache, dot_claude, history,
     total_pushes = sum(len([g for g in s.get("git_ops", []) if g.get("type") == "push"]) for s in session_list)
     total_prs = sum(len([g for g in s.get("git_ops", []) if g.get("type") == "pr"]) for s in session_list)
 
+    # Git activity over time (daily counts per type; timestamps are ISO strings)
+    git_daily = defaultdict(lambda: {"commit": 0, "push": 0, "pr": 0})
+    for s in session_list:
+        for g in s.get("git_ops", []):
+            t, ts = g.get("type"), g.get("timestamp", "")
+            if t in ("commit", "push", "pr") and len(ts) >= 10:
+                git_daily[ts[:10]][t] += 1
+    git_daily_list = [{"date": d, **v} for d, v in sorted(git_daily.items())]
+
     dc = dot_claude
     account = dc.get("oauthAccount", {})
 
@@ -1967,6 +1976,7 @@ def build_dashboard_data(sessions, stats_cache, dot_claude, history,
             "commits": total_commits,
             "pushes": total_pushes,
             "prs": total_prs,
+            "daily": git_daily_list,
         },
         "insights": {
             "plans": plans or [],
@@ -2454,6 +2464,9 @@ body { background:var(--bg); color:var(--text); font-family:'Segoe UI',system-ui
     <div class="chart-grid">
       <div class="chart-box"><h3>__L_insights_system_info__</h3><div id="systemInfo"></div></div>
       <div class="chart-box"><h3>__L_insights_git_ops__</h3><div id="gitOpsInfo"></div></div>
+    </div>
+    <div class="chart-grid full" id="gitTimelineRow">
+      <div class="chart-box"><h3>__L_insights_git_timeline__</h3><canvas id="chartGitTimeline" height="200"></canvas></div>
     </div>
     <div class="chart-grid">
       <div class="chart-box"><h3>__L_insights_error_rate_over_time__</h3><canvas id="errorRateChart" height="200"></canvas></div>
@@ -3891,6 +3904,27 @@ function renderInsights() {
       '<div class="sidebar-row"><span class="label">'+D.locale.insights.commits+'</span><span class="val" style="color:var(--green)">'+(gs.commits||0)+'</span></div>' +
       '<div class="sidebar-row"><span class="label">'+D.locale.insights.pushes+'</span><span class="val" style="color:var(--blue)">'+(gs.pushes||0)+'</span></div>' +
       '<div class="sidebar-row"><span class="label">'+D.locale.insights.pull_requests+'</span><span class="val" style="color:var(--purple)">'+(gs.prs||0)+'</span></div>';
+  }
+
+  // Git activity over time (stacked daily counts; full history, not filtered)
+  const gd = (gs.daily) || [];
+  const gtRow = document.getElementById('gitTimelineRow');
+  if (gd.length) {
+    if (gtRow) gtRow.style.display = '';
+    charts.gitTimeline = new Chart(document.getElementById('chartGitTimeline'), {
+      type: 'bar',
+      data: { labels: gd.map(d => d.date),
+        datasets: [
+          { label: D.locale.insights.commits, data: gd.map(d => d.commit), backgroundColor: '#34d399', borderRadius: 2 },
+          { label: D.locale.insights.pushes, data: gd.map(d => d.push), backgroundColor: '#38bdf8', borderRadius: 2 },
+          { label: D.locale.insights.pull_requests, data: gd.map(d => d.pr), backgroundColor: '#c084fc', borderRadius: 2 },
+        ] },
+      options: { responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { labels: { color: '#94a3b8' } } },
+        scales: { x: { ...scaleDefaults.x, stacked: true }, y: { ...scaleDefaults.y, stacked: true } } }
+    });
+  } else if (gtRow) {
+    gtRow.style.display = 'none';
   }
 
   // Error rate over time chart

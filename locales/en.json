@@ -183,7 +183,8 @@
     "top_files": "Most-Touched Files (Top 20)",
     "reads": "Reads",
     "edits": "Edits",
-    "writes": "Writes"
+    "writes": "Writes",
+    "git_timeline": "Git Activity over Time"
   },
   "agents": {
     "subagent_types": "Subagent Types",

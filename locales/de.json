@@ -183,7 +183,8 @@
     "top_files": "Meistbearbeitete Dateien (Top 20)",
     "reads": "Lesevorgänge",
     "edits": "Änderungen",
-    "writes": "Schreibvorgänge"
+    "writes": "Schreibvorgänge",
+    "git_timeline": "Git-Aktivität über Zeit"
   },
   "agents": {
     "subagent_types": "Subagent-Typen",
