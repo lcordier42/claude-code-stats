@@ -1,7 +1,5 @@
 {
   "language": "en",
-  "display_name": "",
-  "source_label": "",
   "plan_history": [
     {
       "plan": "Team",
@@ -12,7 +10,6 @@
       "billing_day": 10
     }
   ],
-  "additional_sources": [],
   "rtk": {
     "enabled": true,
     "db_path": null,

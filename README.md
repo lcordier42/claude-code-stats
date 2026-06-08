@@ -71,7 +71,6 @@ See [`config.example.json`](config.example.json) for all options:
 |-----|------|---------|-------------|
 | `language` | `string` | `"en"` | UI language (`"en"`, `"de"`, or `"fr"`) |
 | `plan_history` | `array` | `[]` | Your subscription plan history |
-| `additional_sources` | `array` | `[]` | Extra `~/.claude` directories to merge (multi-user) |
 | `rtk.enabled` | `bool` | `true` | Show the RTK savings tab (if RTK is installed) |
 | `rtk.db_path` | `string` | `null` | Override path to RTK's `history.db` (auto-detected if null) |
 | `rtk.token_price_low_usd_per_mtok` | `number` | `3.00` | Low end of the input-token rate range for estimating cost avoided |
@@ -95,28 +94,6 @@ Each entry in `plan_history` represents a subscription period:
 - `end: null` means the plan is currently active
 - `billing_day` determines billing cycle boundaries for cost analysis
 
-### Multi-User / Additional Sources
-
-To include Claude Code data from other users on the same machine (or any additional `~/.claude` directory), add them to `additional_sources`:
-
-```json
-{
-  "additional_sources": [
-    {
-      "label": "alice",
-      "claude_dir": "/home/alice/.claude",
-      "dot_claude_json": "/home/alice/.claude.json"
-    }
-  ]
-}
-```
-
-- `label` -- Identifies the source in session metadata
-- `claude_dir` -- Path to the user's `.claude` directory
-- `dot_claude_json` -- *(optional)* Path to their `.claude.json` file
-
-The running user needs read access to the referenced directories. Sessions are deduplicated and all data (sessions, plans, todos, telemetry, etc.) is merged into the dashboard.
-
 ### RTK Savings (optional)
 
 If you use [RTK (Rust Token Killer)](https://github.com/AeternaLabsHQ/rtk), the dashboard adds an **RTK Savings** tab. It reads RTK's `history.db` (read-only) and shows tokens saved, a per-command breakdown, a daily timeline, and an estimated cost avoided.
@@ -129,6 +106,19 @@ The script generates files in the `public/` directory:
 
 - `index.html` -- Self-contained interactive dashboard (open in any browser)
 - `dashboard_data.json` -- Raw aggregated data (for custom analysis)
+
+## Security & Privacy
+
+This tool is designed to run **entirely on your machine**. Nothing is ever sent over the network: `extract_stats.py` only reads local files and writes static HTML/JSON into `public/`. Used locally, it's safe.
+
+What you need to know before you do anything beyond opening the file locally:
+
+- **The generated output embeds your raw conversation history in plaintext.** Every session HTML (`public/sessions/*.html`) contains the full text of your prompts and Claude's responses, plus file paths, internal URLs, git commit messages, command output, and (unless excluded) project memories. Treat the `public/` directory like a copy of your transcripts -- because that's what it is.
+- **Never host it on a public or shared URL.** No login wall, no "private" link, no `python -m http.server` exposed to a network. If you must share, copy the static files behind real authentication, on a host you control.
+- **Exports carry everything too.** The "export all as Markdown (ZIP)" button bundles full chat content. Don't email or upload those blindly.
+- **Scrub before sharing screenshots.** Press `F2` in the dashboard for anonymization mode. Use `--no-memories` to keep project memory content out of the build entirely.
+- **The output is unencrypted.** `public/` is gitignored so it won't land in a commit, but it sits in plaintext on disk -- on a shared machine, anyone with read access can read your history.
+- **Offline rendering is not fully airtight.** The HTML pulls a few JS libraries (Chart.js, JSZip, highlight.js) from public CDNs, so opening the dashboard contacts those CDNs. Your data still never leaves your browser, but the page isn't usable fully offline and isn't isolated from CDN supply-chain risk.
 
 ## Automation
 
@@ -151,7 +141,7 @@ To preserve your data, add `cleanupPeriodDays` to your `~/.claude/settings.json`
 ```
 
 > [!CAUTION]
-> Without this setting, you will silently lose historical session data every time Claude Code starts. There is no recovery mechanism -- once the files are deleted, the cost and token data they contained is gone. If you use `additional_sources`, apply this setting on every machine.
+> Without this setting, you will silently lose historical session data every time Claude Code starts. There is no recovery mechanism -- once the files are deleted, the cost and token data they contained is gone.
 
 > [!NOTE]
 > Do not set the value to `0` -- this disables transcript persistence entirely ([#23710](https://github.com/anthropics/claude-code/issues/23710)). The minimum allowed value is `1`.
