@@ -3740,9 +3740,9 @@ function renderInsights() {
     {label: D.locale.insights.plugins_installed, value: String(installed.length)},
     {label: D.locale.insights.plugins_active, value: String(Object.values(enabled).filter(v => v).length)},
     {label: D.locale.insights.total_storage, value: (storage.total_mb || 0) + ' MB'},
-    {label: D.locale.insights.transcripts, value: ((storage.items || []).find(s => s.name === 'projects/') || {}).size_mb + ' MB'},
-    {label: D.locale.insights.debug_logs, value: ((storage.items || []).find(s => s.name === 'debug/') || {}).size_mb + ' MB'},
-    {label: D.locale.insights.file_history_label, value: ((storage.items || []).find(s => s.name === 'file-history/') || {}).size_mb + ' MB'},
+    {label: D.locale.insights.transcripts, value: (((storage.items || []).find(s => s.name === 'projects/') || {}).size_mb || 0) + ' MB'},
+    {label: D.locale.insights.debug_logs, value: (((storage.items || []).find(s => s.name === 'debug/') || {}).size_mb || 0) + ' MB'},
+    {label: D.locale.insights.file_history_label, value: (((storage.items || []).find(s => s.name === 'file-history/') || {}).size_mb || 0) + ' MB'},
   ];
   const grid = document.createElement('div'); grid.className = 'config-grid';
   configItems.forEach(c => {
