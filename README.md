@@ -157,9 +157,19 @@ To preserve your data, add `cleanupPeriodDays` to your `~/.claude/settings.json`
 
 ## Localization
 
-The dashboard supports English and German. Set `"language": "en"` or `"language": "de"` in your `config.json`.
+The dashboard supports English, German, and French. Set `"language"` to `"en"`, `"de"`, or `"fr"` in your `config.json`.
 
 To add a new language, create a file in `locales/` following the structure of [`locales/en.json`](locales/en.json).
+
+## Development
+
+Run the smoke test after changes to catch the common regressions (leftover locale placeholders, broken inlined JS, locale key drift, `undefined` display artifacts):
+
+```bash
+python3 test_smoke.py
+```
+
+Stdlib only; the JS syntax check uses `node` if available and is skipped otherwise.
 
 ## License
 
