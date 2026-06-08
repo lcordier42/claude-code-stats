@@ -10,7 +10,7 @@
   },
   "kpi": {
     "api_equivalent": "API Equivalent",
-    "api_equivalent_sub": "Value at API prices \u2013 actually paid: ",
+    "api_equivalent_sub": "Value at API prices – actually paid: ",
     "messages": "Messages",
     "messages_sub_prefix": "in ",
     "messages_sub_suffix": " sessions",
@@ -25,7 +25,8 @@
     "sessions": "Sessions",
     "plan": "Plan & Billing",
     "insights": "Insights",
-    "agents": "Agents"
+    "agents": "Agents",
+    "rtk": "RTK Savings"
   },
   "costs": {
     "daily_cost": "API Value per Day by Model",
@@ -49,9 +50,20 @@
     "weekday": "Weekday Distribution",
     "daily_sessions": "Sessions per Day",
     "sessions_label": "Sessions",
-    "heatmap": "Activity"
+    "heatmap": "Activity",
+    "prompts_full": "Prompts per Day (Full History)",
+    "prompts_label": "Prompts",
+    "prompts_note": "From the long-term prompt log (history.jsonl) — includes sessions whose transcripts were purged by retention. Count of prompts only, no token/cost data."
   },
-  "weekdays": ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
+  "weekdays": [
+    "Mon",
+    "Tue",
+    "Wed",
+    "Thu",
+    "Fri",
+    "Sat",
+    "Sun"
+  ],
   "projects": {
     "top15": "Projects by API Value (Top 15)",
     "top15_label": "API Value ($)",
@@ -193,5 +205,24 @@
     "th_reads": "Reads",
     "th_edits": "Edits",
     "th_writes": "Writes"
+  },
+  "rtk": {
+    "daily_saved": "Tokens Saved per Day",
+    "by_command": "Tokens Saved by Command",
+    "top_commands": "Top Commands",
+    "tokens": "tokens",
+    "kpi_saved": "Tokens Saved",
+    "kpi_saved_sub": "avg reduction",
+    "kpi_usd": "Est. Cost Avoided",
+    "kpi_usd_sub": "/M input tokens",
+    "kpi_commands": "Commands Proxied",
+    "kpi_time": "Total Exec Time",
+    "kpi_time_sub": "spent in RTK proxy",
+    "th_command": "Command",
+    "th_count": "Count",
+    "th_saved": "Tokens Saved",
+    "th_avg_pct": "Avg %",
+    "th_time": "Time",
+    "disclaimer": "RTK (Rust Token Killer) strips noise from dev-command output before it reaches the model. Cost-avoided is an estimate: saved tokens priced at a flat input-token rate (set rtk.token_price_usd_per_mtok in config.json). It is not a billed amount."
   }
 }

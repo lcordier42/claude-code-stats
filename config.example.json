@@ -27,5 +27,10 @@
     "claude_dir_name": ".claude-windows",
     "dot_claude_json_name": ".claude-windows.json"
   },
-  "additional_sources": []
+  "additional_sources": [],
+  "rtk": {
+    "enabled": true,
+    "db_path": null,
+    "token_price_usd_per_mtok": 3.00
+  }
 }

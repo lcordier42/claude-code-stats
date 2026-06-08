@@ -190,6 +190,12 @@ PLAN_HISTORY = CONFIG.get("plan_history", [])
 
 # ── Pricing (USD per 1M tokens) ───────────────────────────────────────────
 PRICING = {
+    # Claude 4.8
+    "claude-opus-4-8": {
+        "input": 5.00, "output": 25.00,
+        "cache_read": 0.50, "cache_write_5m": 6.25, "cache_write_1h": 10.00,
+        "display": "Opus 4.8"
+    },
     # Claude 4.7
     "claude-opus-4-7": {
         "input": 5.00, "output": 25.00,
@@ -1511,10 +1517,159 @@ def build_plan_analysis(daily_cost_series, session_list):
     }
 
 
+def load_rtk_stats():
+    """Load RTK (Rust Token Killer) savings from its SQLite history DB.
+
+    RTK is a CLI proxy that strips noise from dev-command output before it
+    reaches the model. Its history.db logs tokens-saved per command. We read
+    it directly (the `rtk gain` text output truncates command names).
+
+    Returns None when disabled, unavailable, or empty.
+    """
+    rtk_cfg = CONFIG.get("rtk", {})
+    if not rtk_cfg.get("enabled", True):
+        return None
+
+    # Locate history.db: explicit config path, else platform defaults.
+    candidates = []
+    if rtk_cfg.get("db_path"):
+        candidates.append(Path(rtk_cfg["db_path"]).expanduser())
+    home = Path.home()
+    candidates += [
+        home / "Library" / "Application Support" / "rtk" / "history.db",  # macOS
+        home / ".local" / "share" / "rtk" / "history.db",                 # Linux
+        home / ".rtk" / "history.db",
+    ]
+    db_path = next((p for p in candidates if p.exists()), None)
+    if not db_path:
+        return None
+
+    price = float(rtk_cfg.get("token_price_usd_per_mtok", 3.00))
+
+    try:
+        import sqlite3
+        # Read-only open so we never lock/modify RTK's live DB.
+        conn = sqlite3.connect(f"file:{db_path}?mode=ro", uri=True)
+        cur = conn.cursor()
+        row = cur.execute(
+            "SELECT COUNT(*), COALESCE(SUM(saved_tokens),0), COALESCE(SUM(input_tokens),0), "
+            "COALESCE(SUM(output_tokens),0), COALESCE(SUM(exec_time_ms),0), "
+            "MIN(date(timestamp)), MAX(date(timestamp)) FROM commands"
+        ).fetchone()
+        total_cmds, total_saved, total_input, total_output, total_time, first_date, last_date = row
+        if not total_cmds:
+            conn.close()
+            return None
+
+        # Per-command rollup: group by the first two words of the rtk command
+        # (e.g. "rtk grep", "rtk git", "rtk gh") since the rest is arguments.
+        by_cmd = defaultdict(lambda: {"count": 0, "saved": 0, "pct_sum": 0.0, "time": 0})
+        for rtk_cmd, saved, pct, tms in cur.execute(
+            "SELECT rtk_cmd, saved_tokens, savings_pct, exec_time_ms FROM commands"
+        ):
+            parts = (rtk_cmd or "").split()
+            base = " ".join(parts[:2]) if parts else "unknown"
+            b = by_cmd[base]
+            b["count"] += 1
+            b["saved"] += saved or 0
+            b["pct_sum"] += pct or 0
+            b["time"] += tms or 0
+
+        by_command = sorted(
+            [
+                {
+                    "cmd": k,
+                    "count": v["count"],
+                    "saved": v["saved"],
+                    "avg_pct": round(v["pct_sum"] / v["count"], 1) if v["count"] else 0,
+                    "time_ms": v["time"],
+                }
+                for k, v in by_cmd.items()
+            ],
+            key=lambda x: -x["saved"],
+        )[:15]
+
+        daily = [
+            {"date": d, "saved": s or 0}
+            for d, s in cur.execute(
+                "SELECT date(timestamp), SUM(saved_tokens) FROM commands "
+                "GROUP BY date(timestamp) ORDER BY 1"
+            )
+        ]
+        conn.close()
+    except Exception as e:
+        print(f"  RTK: failed to read {db_path}: {e}")
+        return None
+
+    return {
+        "available": True,
+        "total_commands": total_cmds,
+        "total_saved": total_saved,
+        "total_input": total_input,
+        "total_output": total_output,
+        "avg_savings_pct": round(total_saved / (total_input + total_output) * 100, 1)
+        if (total_input + total_output) else 0,
+        "total_time_ms": total_time,
+        "price_per_mtok": price,
+        "usd_saved": round(total_saved / 1_000_000 * price, 2),
+        "first_date": first_date,
+        "last_date": last_date,
+        "by_command": by_command,
+        "daily": daily,
+    }
+
+
+def load_prompt_history():
+    """Load the user-prompt log from ~/.claude/history.jsonl.
+
+    Unlike session transcripts (purged by cleanupPeriodDays), this prompt log
+    is kept long-term, so it can show activity that predates the oldest
+    surviving transcript. We only get prompt counts per day here — no tokens
+    or cost (those live in transcripts) — but it fills the visual history gap.
+
+    Returns None when the file is missing or empty.
+    """
+    hist_path = Path.home() / ".claude" / "history.jsonl"
+    if not hist_path.exists():
+        return None
+
+    from datetime import datetime, timezone
+    daily = defaultdict(int)
+    total = 0
+    for line in hist_path.read_text(encoding="utf-8", errors="ignore").splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            obj = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        ts = obj.get("timestamp")
+        if not isinstance(ts, (int, float)):
+            continue
+        # history.jsonl stores epoch milliseconds.
+        day = datetime.fromtimestamp(ts / 1000, tz=timezone.utc).strftime("%Y-%m-%d")
+        daily[day] += 1
+        total += 1
+
+    if not total:
+        return None
+
+    daily_list = [{"date": d, "count": c} for d, c in sorted(daily.items())]
+    return {
+        "available": True,
+        "daily": daily_list,
+        "total": total,
+        "first": daily_list[0]["date"],
+        "last": daily_list[-1]["date"],
+    }
+
+
 def build_dashboard_data(sessions, stats_cache, dot_claude, history,
                          plans=None, plugins=None, todos=None,
                          file_history=None, storage=None,
-                         telemetry=None, tasks=None, memories=None):
+                         telemetry=None, tasks=None, memories=None, rtk=None,
+                         prompt_history=None):
     """Aggregate all data into the dashboard data structure."""
 
     session_list = []
@@ -1888,6 +2043,8 @@ def build_dashboard_data(sessions, stats_cache, dot_claude, history,
             "telemetry": telemetry or {},
             "memories_count": len(memories) if memories else 0,
         },
+        "rtk": rtk or {"available": False},
+        "prompt_history": prompt_history or {"available": False},
         "_memories": memories or {},
         "_file_ops_by_session": {sid: sess.get("file_ops", []) for sid, sess in sessions.items()},
     }
@@ -2218,6 +2375,13 @@ body { background:var(--bg); color:var(--text); font-family:'Segoe UI',system-ui
         <span>More</span>
       </div>
     </div>
+    <div class="chart-grid full" id="promptHistoryBox">
+      <div class="chart-box">
+        <h3>__L_activity_prompts_full__</h3>
+        <canvas id="chartPromptHistory"></canvas>
+        <p style="color:var(--text2);font-size:12px;margin-top:8px">__L_activity_prompts_note__</p>
+      </div>
+    </div>
     <div class="chart-grid full">
       <div class="chart-box"><h3>__L_activity_daily_messages__</h3><canvas id="chartDailyMsgs"></canvas></div>
     </div>
@@ -2364,6 +2528,24 @@ body { background:var(--bg); color:var(--text); font-family:'Segoe UI',system-ui
       <div class="chart-box"><h3>__L_agents_errors_by_tool__</h3><canvas id="errorByToolChart" height="250"></canvas></div>
     </div>
   </div>
+  <div class="tab-content" id="tab-rtk">
+    <div class="kpi-grid" id="rtkKpis"></div>
+    <div class="chart-grid">
+      <div class="chart-box"><h3>__L_rtk_daily_saved__</h3><canvas id="rtkDailyChart" height="250"></canvas></div>
+      <div class="chart-box"><h3>__L_rtk_by_command__</h3><canvas id="rtkByCmdChart" height="250"></canvas></div>
+    </div>
+    <div class="chart-box">
+      <h3>__L_rtk_top_commands__</h3>
+      <table class="data-table">
+        <thead><tr>
+          <th>__L_rtk_th_command__</th><th>__L_rtk_th_count__</th>
+          <th>__L_rtk_th_saved__</th><th>__L_rtk_th_avg_pct__</th><th>__L_rtk_th_time__</th>
+        </tr></thead>
+        <tbody id="rtkCmdTableBody"></tbody>
+      </table>
+    </div>
+    <p style="color:var(--text2);font-size:12px;margin-top:12px">__L_rtk_disclaimer__</p>
+  </div>
 </div>
 
 <script>
@@ -2386,7 +2568,7 @@ function escHtml(s) {
 }
 
 const MODEL_COLORS = {
-  'Opus 4.7': '#c084fc', 'Opus 4.6': '#a855f7', 'Opus 4.5': '#7c3aed',
+  'Opus 4.8': '#d8b4fe', 'Opus 4.7': '#c084fc', 'Opus 4.6': '#a855f7', 'Opus 4.5': '#7c3aed',
   'Sonnet 4.5': '#3b82f6', 'Haiku 4.5': '#22c55e',
   'Unknown': '#6b7280'
 };
@@ -2606,11 +2788,6 @@ function filterData(days, projectFilter) {
       const d = ad.description || ad.desc || '';
       if (d) agentDescMap[d] = (agentDescMap[d] || 0) + 1;
     });
-    (s.subagents || []).forEach(sa => {
-      totalDispatches++;
-      const t = sa.type || 'unknown';
-      agentTypeMap[t] = (agentTypeMap[t] || 0) + 1;
-    });
   });
   F.agent_summary = {
     total_dispatches: totalDispatches,
@@ -2752,6 +2929,7 @@ const TAB_NAMES = [
   {id:'plan', label:D.locale.tabs.plan},
   {id:'insights', label:D.locale.tabs.insights},
   {id:'agents', label:D.locale.tabs.agents},
+  ...(D.rtk && D.rtk.available ? [{id:'rtk', label:D.locale.tabs.rtk}] : []),
 ];
 
 function initTabs() {
@@ -2920,6 +3098,24 @@ function renderHeatmap() {
 
 // ── Tab 2: Activity ────────────────────────────────────────────────────
 function renderActivity() {
+  // Prompt-history chart: full history from history.jsonl (not time-filtered),
+  // since its whole point is to show activity that predates the transcripts.
+  const ph = D.prompt_history;
+  const phBox = document.getElementById('promptHistoryBox');
+  if (ph && ph.available && ph.daily.length) {
+    if (phBox) phBox.style.display = '';
+    charts.promptHistory = new Chart(document.getElementById('chartPromptHistory'), {
+      type: 'bar',
+      data: { labels: ph.daily.map(d => d.date),
+        datasets: [{ label: D.locale.activity.prompts_label, data: ph.daily.map(d => d.count),
+          backgroundColor: '#a78bfa', borderRadius: 3 }] },
+      options: { responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { display: false } }, scales: scaleDefaults }
+    });
+  } else if (phBox) {
+    phBox.style.display = 'none';
+  }
+
   charts.dailyMsgs = new Chart(document.getElementById('chartDailyMsgs'), {
     type: 'bar',
     data: { labels: F.daily_messages.map(d => d.date),
@@ -3700,9 +3896,9 @@ function renderInsights() {
   const gitEl = document.getElementById('gitOpsInfo');
   if (gitEl) {
     gitEl.innerHTML =
-      '<div class="sidebar-row"><span class="label">__L_insights_commits__</span><span class="val" style="color:var(--green)">'+(gs.commits||0)+'</span></div>' +
-      '<div class="sidebar-row"><span class="label">__L_insights_pushes__</span><span class="val" style="color:var(--blue)">'+(gs.pushes||0)+'</span></div>' +
-      '<div class="sidebar-row"><span class="label">__L_insights_pull_requests__</span><span class="val" style="color:var(--purple)">'+(gs.prs||0)+'</span></div>';
+      '<div class="sidebar-row"><span class="label">'+D.locale.insights.commits+'</span><span class="val" style="color:var(--green)">'+(gs.commits||0)+'</span></div>' +
+      '<div class="sidebar-row"><span class="label">'+D.locale.insights.pushes+'</span><span class="val" style="color:var(--blue)">'+(gs.pushes||0)+'</span></div>' +
+      '<div class="sidebar-row"><span class="label">'+D.locale.insights.pull_requests+'</span><span class="val" style="color:var(--purple)">'+(gs.prs||0)+'</span></div>';
   }
 
   // Error rate over time chart
@@ -3764,9 +3960,9 @@ function renderAgentsTab() {
   const kpiEl = document.getElementById('agentKpis');
   kpiEl.innerHTML = '';
   const agentKpis = [
-    {val: as.total_dispatches || 0, color:'var(--purple)', label:'__L_agents_dispatches__'},
-    {val: (F.insights?.tasks?.total || D.insights?.tasks?.total || 0), color:'var(--cyan)', label:'__L_agents_total_tasks__'},
-    {val: (es.error_rate || 0) + '%', color:'var(--red)', label:'__L_agents_error_rate__'},
+    {val: as.total_dispatches || 0, color:'var(--purple)', label:D.locale.agents.dispatches},
+    {val: (F.insights?.tasks?.total || D.insights?.tasks?.total || 0), color:'var(--cyan)', label:D.locale.agents.total_tasks},
+    {val: (es.error_rate || 0) + '%', color:'var(--red)', label:D.locale.agents.error_rate},
   ];
   agentKpis.forEach(k => {
     const div = document.createElement('div');
@@ -3783,7 +3979,7 @@ function renderAgentsTab() {
     taskEl.innerHTML =
       '<div style="display:flex;gap:16px;align-items:center;margin-bottom:12px">' +
         '<div style="width:80px;height:80px;position:relative"><canvas id="taskDonut"></canvas></div>' +
-        '<div><div style="font-size:24px;font-weight:700">'+pct+'%</div><div style="color:var(--text2);font-size:12px">__L_agents_task_completion__</div></div>' +
+        '<div><div style="font-size:24px;font-weight:700">'+pct+'%</div><div style="color:var(--text2);font-size:12px">'+D.locale.agents.task_completion+'</div></div>' +
       '</div>' +
       '<div style="display:flex;gap:8px;flex-wrap:wrap">' +
         '<span class="tag" style="background:rgba(34,197,94,0.15);color:var(--green)">\\u2713 '+tasks.completed+' completed</span>' +
@@ -3805,7 +4001,7 @@ function renderAgentsTab() {
   const topCats = (es.by_category || []).slice(0, 5);
   errEl.innerHTML =
     '<div style="margin-bottom:12px"><span style="font-size:20px;font-weight:700;color:var(--red)">'+(es.total_errors||0)+'</span> errors / <span style="font-weight:600">'+(es.total_tool_calls||0)+'</span> tool calls</div>' +
-    '<div style="font-size:12px;color:var(--text2);margin-bottom:8px">__L_agents_error_rate__: '+(es.error_rate||0)+'%</div>' +
+    '<div style="font-size:12px;color:var(--text2);margin-bottom:8px">'+D.locale.agents.error_rate+': '+(es.error_rate||0)+'%</div>' +
     '<div style="margin-top:12px">' + topCats.map(c =>
       '<div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid var(--border)">' +
         '<span style="font-size:12px">'+(catLabels[c.category]||c.category)+'</span>' +
@@ -3870,6 +4066,77 @@ document.getElementById('projectFilter').addEventListener('input', function() {
   clearTimeout(pfTimer);
   pfTimer = setTimeout(() => applyFilter(undefined, this.value), 300);
 });
+// ── RTK Tab ────────────────────────────────────────────────────────────
+function fmtDuration(ms) {
+  const s = Math.round(ms / 1000);
+  if (s < 60) return s + 's';
+  const m = Math.floor(s / 60);
+  if (m < 60) return m + 'm' + (s % 60) + 's';
+  return Math.floor(m / 60) + 'h' + (m % 60) + 'm';
+}
+
+function renderRTK() {
+  const r = D.rtk;
+  if (!r || !r.available) return;
+
+  const grid = document.getElementById('rtkKpis');
+  const L = D.locale.rtk;
+  const cards = [
+    {cls:'tokens', label:L.kpi_saved, value:fmtTokens(r.total_saved), sub:r.avg_savings_pct + '% ' + L.kpi_saved_sub},
+    {cls:'cost', label:L.kpi_usd, value:fmtUSD(r.usd_saved), sub:'@ $' + r.price_per_mtok + L.kpi_usd_sub},
+    {cls:'messages', label:L.kpi_commands, value:fmt(r.total_commands), sub:r.first_date + ' – ' + r.last_date},
+    {cls:'sessions', label:L.kpi_time, value:fmtDuration(r.total_time_ms), sub:L.kpi_time_sub},
+  ];
+  cards.forEach(c => {
+    const div = document.createElement('div');
+    div.className = 'kpi-card ' + c.cls;
+    const lbl = document.createElement('div'); lbl.className = 'label'; lbl.textContent = c.label;
+    const val = document.createElement('div'); val.className = 'value'; val.textContent = c.value;
+    const sub = document.createElement('div'); sub.className = 'sub'; sub.textContent = c.sub;
+    div.appendChild(lbl); div.appendChild(val); div.appendChild(sub);
+    grid.appendChild(div);
+  });
+
+  // Daily tokens saved
+  charts.rtkDaily = new Chart(document.getElementById('rtkDailyChart'), {
+    type: 'line',
+    data: { labels: r.daily.map(d => d.date),
+      datasets: [{ label: L.daily_saved, data: r.daily.map(d => d.saved),
+        borderColor: '#34d399', backgroundColor: 'rgba(52,211,153,.15)', fill: true, tension: .3, pointRadius: 0 }] },
+    options: { responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false },
+        tooltip: { callbacks: { label: ctx => fmtTokens(ctx.raw) + ' ' + L.tokens } } },
+      scales: { x: scaleDefaults.x, y: { ...scaleDefaults.y, ticks: { ...scaleDefaults.y.ticks, callback: v => fmtTokens(v) } } } }
+  });
+
+  // Saved tokens by command
+  const cmds = r.by_command;
+  charts.rtkByCmd = new Chart(document.getElementById('rtkByCmdChart'), {
+    type: 'bar',
+    data: { labels: cmds.map(c => c.cmd),
+      datasets: [{ label: L.tokens, data: cmds.map(c => c.saved),
+        backgroundColor: cmds.map((_, i) => 'hsl(' + (150 + i * 12) + ',55%,50%)'), borderRadius: 4 }] },
+    options: { responsive: true, maintainAspectRatio: false, indexAxis: 'y',
+      plugins: { legend: { display: false },
+        tooltip: { callbacks: { label: ctx => fmtTokens(ctx.raw) + ' ' + L.tokens } } },
+      scales: { x: { ...scaleDefaults.x, ticks: { ...scaleDefaults.x.ticks, callback: v => fmtTokens(v) } },
+        y: { ...scaleDefaults.y, ticks: { font: { size: 11 } } } } }
+  });
+
+  // Table
+  const tbody = document.getElementById('rtkCmdTableBody');
+  cmds.forEach(c => {
+    const tr = document.createElement('tr');
+    [c.cmd, fmt(c.count), fmtTokens(c.saved), c.avg_pct + '%', fmtDuration(c.time_ms)].forEach((v, i) => {
+      const td = document.createElement('td');
+      td.textContent = v;
+      if (i === 0) td.style.fontFamily = 'monospace';
+      tr.appendChild(td);
+    });
+    tbody.appendChild(tr);
+  });
+}
+
 initTabs();
 renderKPI();
 renderCosts();
@@ -3880,6 +4147,7 @@ document.getElementById('bulkDownloadBtn').addEventListener('click', bulkDownloa
 renderPlan();
 renderInsights();
 renderAgentsTab();
+renderRTK();
 
 // F2 Anonymization mode
 const anonMap = {};
@@ -6244,6 +6512,16 @@ def main():
     print(f"  Memories: {len(memories)} projects")
     print(f"  Tasks: {tasks['total']} ({tasks['completed']} completed)")
 
+    rtk = load_rtk_stats()
+    if rtk:
+        print(f"  RTK: {rtk['total_commands']} commands, {rtk['total_saved']/1e6:.1f}M tokens saved (~${rtk['usd_saved']})")
+    else:
+        print("  RTK: no data (disabled or history.db not found)")
+
+    prompt_history = load_prompt_history()
+    if prompt_history:
+        print(f"  Prompt history: {prompt_history['total']} prompts, {prompt_history['first']} → {prompt_history['last']}")
+
     OUTPUT_DIR.mkdir(exist_ok=True)
 
     print("\nAggregating data...")
@@ -6251,7 +6529,8 @@ def main():
         sessions, stats_cache, dot_claude, history,
         plans=plans, plugins=plugins, todos=todos,
         file_history=file_history, storage=storage,
-        telemetry=telemetry, tasks=tasks, memories=memories,
+        telemetry=telemetry, tasks=tasks, memories=memories, rtk=rtk,
+        prompt_history=prompt_history,
     )
 
     print(f"\nGenerating session pages...")

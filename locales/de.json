@@ -9,8 +9,8 @@
     "hide_empty_hint": "Sessions ohne Nachrichten und ohne Token-Verbrauch ausblenden"
   },
   "kpi": {
-    "api_equivalent": "API-\u00c4quivalent",
-    "api_equivalent_sub": "Wert bei API-Preisen \u2013 tats\u00e4chlich bezahlt: ",
+    "api_equivalent": "API-Äquivalent",
+    "api_equivalent_sub": "Wert bei API-Preisen – tatsächlich bezahlt: ",
     "messages": "Nachrichten",
     "messages_sub_prefix": "in ",
     "messages_sub_suffix": " Sessions",
@@ -20,12 +20,13 @@
   },
   "tabs": {
     "costs": "Token & API-Wert",
-    "activity": "Aktivit\u00e4t",
+    "activity": "Aktivität",
     "projects": "Projekte",
     "sessions": "Sessions",
     "plan": "Plan & Abrechnung",
     "insights": "Insights",
-    "agents": "Agenten"
+    "agents": "Agenten",
+    "rtk": "RTK-Ersparnis"
   },
   "costs": {
     "daily_cost": "API-Wert pro Tag nach Modell",
@@ -49,9 +50,20 @@
     "weekday": "Wochentags-Verteilung",
     "daily_sessions": "Sessions pro Tag",
     "sessions_label": "Sessions",
-    "heatmap": "Aktivität"
+    "heatmap": "Aktivität",
+    "prompts_full": "Prompts pro Tag (Gesamtverlauf)",
+    "prompts_label": "Prompts",
+    "prompts_note": "Aus dem langfristigen Prompt-Log (history.jsonl) — enthält Sitzungen, deren Transkripte durch die Aufbewahrung gelöscht wurden. Nur Anzahl der Prompts, keine Token-/Kostendaten."
   },
-  "weekdays": ["Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"],
+  "weekdays": [
+    "Mo",
+    "Di",
+    "Mi",
+    "Do",
+    "Fr",
+    "Sa",
+    "So"
+  ],
   "projects": {
     "top15": "Projekte nach API-Wert (Top 15)",
     "top15_label": "API-Wert ($)",
@@ -66,8 +78,8 @@
   "sessions_tab": {
     "all_projects": "Alle Projekte",
     "sort_date_desc": "Datum (neueste)",
-    "sort_date_asc": "Datum (\u00e4lteste)",
-    "sort_cost_desc": "API-Wert (h\u00f6chster)",
+    "sort_date_asc": "Datum (älteste)",
+    "sort_cost_desc": "API-Wert (höchster)",
     "sort_cost_asc": "API-Wert (niedrigster)",
     "sort_messages_desc": "Nachrichten (meiste)",
     "search_placeholder": "Suche in Prompts...",
@@ -97,7 +109,7 @@
     "roi": "ROI",
     "sessions": "Sessions",
     "messages": "Nachrichten",
-    "avg_per_day": "\u00d8 / Tag",
+    "avg_per_day": "Ø / Tag",
     "comparison_title": "API-Kosten vs. Plan-Kosten pro Abrechnungszeitraum",
     "savings_by_period": "Ersparnis nach Zeitraum",
     "avg_cost_per_day": "API-Wert pro Tag (Durchschnitt)",
@@ -141,7 +153,7 @@
     "transcripts": "Transcripts",
     "debug_logs": "Debug-Logs",
     "file_history_label": "File-History",
-    "plan_mode_plans": "Plan-Mode Pl\u00e4ne",
+    "plan_mode_plans": "Plan-Mode Pläne",
     "th_title": "Titel",
     "th_created": "Erstellt",
     "th_lines": "Zeilen",
@@ -149,7 +161,7 @@
     "file_snapshots_title": "Datei-Snapshots & Todos",
     "file_snapshots": "Datei-Snapshots",
     "sessions_with_snapshots": "Sessions mit Snapshots",
-    "snapshot_size": "Snapshot-Gr\u00f6\u00dfe",
+    "snapshot_size": "Snapshot-Größe",
     "todos_total": "Todos gesamt",
     "todos_completed": "Todos erledigt",
     "completion_rate": "Completion Rate",
@@ -172,7 +184,7 @@
     "total_tasks": "Tasks gesamt",
     "task_overview": "Task-Management",
     "task_completion": "Abschlussrate",
-    "error_overview": "Fehler-\u00dcbersicht",
+    "error_overview": "Fehler-Übersicht",
     "errors_by_category": "Fehler nach Kategorie",
     "errors_by_tool": "Fehler nach Tool",
     "error_rate": "Fehlerrate",
@@ -183,7 +195,7 @@
     "th_error": "Fehlermeldung"
   },
   "project_detail": {
-    "overview": "\u00dcbersicht",
+    "overview": "Übersicht",
     "workflow": "Workflow",
     "memory": "Projekt-Memory",
     "top_files": "Top-Dateien",
@@ -193,5 +205,24 @@
     "th_reads": "Reads",
     "th_edits": "Edits",
     "th_writes": "Writes"
+  },
+  "rtk": {
+    "daily_saved": "Gesparte Tokens pro Tag",
+    "by_command": "Gesparte Tokens nach Befehl",
+    "top_commands": "Top-Befehle",
+    "tokens": "Tokens",
+    "kpi_saved": "Gesparte Tokens",
+    "kpi_saved_sub": "Ø Reduktion",
+    "kpi_usd": "Gesch. vermiedene Kosten",
+    "kpi_usd_sub": "/M Input-Tokens",
+    "kpi_commands": "Proxied Befehle",
+    "kpi_time": "Gesamte Ausf.-Zeit",
+    "kpi_time_sub": "im RTK-Proxy",
+    "th_command": "Befehl",
+    "th_count": "Anzahl",
+    "th_saved": "Gesparte Tokens",
+    "th_avg_pct": "Ø %",
+    "th_time": "Zeit",
+    "disclaimer": "RTK (Rust Token Killer) entfernt Rauschen aus der Ausgabe von Dev-Befehlen, bevor sie das Modell erreicht. Vermiedene Kosten sind eine Schätzung: gesparte Tokens zu einem festen Input-Token-Preis (rtk.token_price_usd_per_mtok in config.json). Kein abgerechneter Betrag."
   }
 }
