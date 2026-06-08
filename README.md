@@ -146,6 +146,9 @@ To preserve your data, add `cleanupPeriodDays` to your `~/.claude/settings.json`
 > [!NOTE]
 > Do not set the value to `0` -- this disables transcript persistence entirely ([#23710](https://github.com/anthropics/claude-code/issues/23710)). The minimum allowed value is `1`.
 
+> [!NOTE]
+> If transcripts were already purged before you raised `cleanupPeriodDays`, that cost/token history is gone for good. The **Activity** tab's *"Prompts per Day (Full History)"* chart is the one exception: it is built from `~/.claude/history.jsonl`, which Claude Code keeps long-term, so it still shows your older activity -- as prompt counts only, with no token or cost data attached.
+
 ## Requirements
 
 - Python 3.8+
