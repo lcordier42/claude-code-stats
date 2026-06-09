@@ -2009,9 +2009,15 @@ def build_dashboard_data(sessions, stats_cache, dot_claude, history,
     return data
 
 
+def _script_safe(json_str):
+    """Escape '<' so embedded JSON can't break out of a <script> block
+    (e.g. a message containing the literal text '</script>')."""
+    return json_str.replace("<", "\\u003c")
+
+
 def generate_dashboard(data):
     """Generate self-contained HTML dashboard with embedded data."""
-    data_json = json.dumps(data, ensure_ascii=False)
+    data_json = _script_safe(json.dumps(data, ensure_ascii=False))
 
     if TEMPLATE_HTML.exists():
         with open(TEMPLATE_HTML, "r", encoding="utf-8") as f:
@@ -2536,6 +2542,27 @@ function escHtml(s) {
   const d = document.createElement('div');
   d.textContent = s;
   return d.innerHTML;
+}
+
+function copyToClipboard(text, btn) {
+  const done = () => {
+    const prev = btn.textContent;
+    btn.textContent = 'Copied!';
+    setTimeout(() => { btn.textContent = prev; }, 1200);
+  };
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(text).then(done).catch(() => fallbackCopy(text, done));
+  } else {
+    fallbackCopy(text, done);
+  }
+}
+
+function fallbackCopy(text, done) {
+  const ta = document.createElement('textarea');
+  ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0';
+  document.body.appendChild(ta); ta.select();
+  try { document.execCommand('copy'); done(); } catch (e) {}
+  document.body.removeChild(ta);
 }
 
 const MODEL_COLORS = {
@@ -3374,6 +3401,17 @@ function buildSessionCard(s) {
   const projSpan = document.createElement('span'); projSpan.className = 'project'; projSpan.textContent = anonMode ? anonName(s.project) : s.project;
   const costSpan = document.createElement('span'); costSpan.className = 'cost'; costSpan.textContent = fmtUSD(s.cost);
   const rightGroup = document.createElement('span'); rightGroup.style.display = 'flex'; rightGroup.style.alignItems = 'center';
+  if (!anonMode) {
+    const resumeBtn = document.createElement('button');
+    resumeBtn.textContent = 'Resume';
+    resumeBtn.title = 'Copy: claude --resume ' + s.session_id;
+    resumeBtn.style.cssText = 'color:var(--text2);background:transparent;font-size:12px;padding:4px 10px;border:1px solid var(--border);border-radius:6px;margin-right:8px;cursor:pointer';
+    resumeBtn.addEventListener('click', function(e) {
+      e.stopPropagation();
+      copyToClipboard('claude --resume ' + s.session_id, resumeBtn);
+    });
+    rightGroup.appendChild(resumeBtn);
+  }
   if (!anonMode && s.has_chat !== false) {
     const chatLink = document.createElement('a'); chatLink.href = 'sessions/' + s.session_id + '.html';
     chatLink.textContent = 'Chat'; chatLink.addEventListener('click', function(e) { e.stopPropagation(); });
@@ -4400,14 +4438,14 @@ def generate_session_pages(sessions, session_list):
 
         flow_data = build_session_flow(messages)
 
-        session_json = json.dumps({
+        session_json = _script_safe(json.dumps({
             "session": sess_data,
             "messages": messages,
-        }, ensure_ascii=False)
+        }, ensure_ascii=False))
 
         html = _get_session_html_template()
         html = html.replace('"__SESSION_DATA__"', session_json)
-        flow_json = json.dumps(flow_data, ensure_ascii=False, separators=(',', ':'))
+        flow_json = _script_safe(json.dumps(flow_data, ensure_ascii=False, separators=(',', ':')))
         html = html.replace('"__FLOW_DATA__"', flow_json)
         html = html.replace('__VERSION__', VERSION)
 
@@ -6231,6 +6269,7 @@ def generate_project_pages(session_list, data=None):
             "git_ops": {"commits": proj_commits, "pushes": proj_pushes, "prs": proj_prs},
             "error_count": proj_errors,
         }, ensure_ascii=False)
+        project_json = _script_safe(project_json)
 
         html = _get_project_html_template()
         html = html.replace('"__PROJECT_DATA__"', project_json)
