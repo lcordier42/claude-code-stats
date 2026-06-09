@@ -166,4 +166,6 @@ Stdlib only; the JS syntax check uses `node` if available and is skipped otherwi
 
 ## License
 
-MIT
+MIT — see [LICENSE](LICENSE).
+
+Forked from [AeternaLabsHQ/claude-code-stats](https://github.com/AeternaLabsHQ/claude-code-stats).
