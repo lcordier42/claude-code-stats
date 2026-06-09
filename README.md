@@ -121,14 +121,6 @@ What you need to know before you do anything beyond opening the file locally:
 - **The output is unencrypted.** `public/` is gitignored so it won't land in a commit, but it sits in plaintext on disk -- on a shared machine, anyone with read access can read your history.
 - **Offline rendering is not fully airtight.** The HTML pulls a few JS libraries (Chart.js, JSZip, highlight.js) from public CDNs, so opening the dashboard contacts those CDNs. Your data still never leaves your browser, but the page isn't usable fully offline and isn't isolated from CDN supply-chain risk.
 
-## Automation
-
-To auto-refresh the dashboard periodically:
-
-```bash
-*/10 * * * * cd /path/to/claude-stats && python3 extract_stats.py 2>&1 >> update.log
-```
-
 ## Important: Prevent Claude Code from Deleting Session Data
 
 Claude Code **automatically deletes session transcript files older than 30 days** on every startup ([docs](https://docs.anthropic.com/en/docs/claude-code/overview#application-data)). Your `history.jsonl` (prompt recall) is kept, but the detailed JSONL transcripts in `~/.claude/projects/` -- which this dashboard depends on for cost calculation, token breakdowns, and session replay -- are permanently removed.
